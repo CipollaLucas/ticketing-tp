@@ -3,7 +3,7 @@
 Trabajo práctico grupal (3 integrantes). Basado metodológicamente en [ticketin](https://github.com/jwackito/ticketin); implementación propia.
 
 ## Estado
-**Bootstrap validado localmente y en CI (PR #1).** Backend: 2 tests, Ruff/mypy OK; frontend y Docker: CI verde. No hay venta real implementada. Esta rama agrega autenticación y roles; ver [guía](docs/AUTENTICACION.md).
+**Etapa I en curso.** Autenticación y roles integrados (PR #12). Esta rama resuelve #13: creación/edición de borradores, publicación y catálogo público paginado. Inventario, compras y tickets siguen pendientes; este PR no cierra toda la fase 1. Ver [contratos y ejemplos](docs/API-ETAPA-I.md), [autenticación](docs/AUTENTICACION.md) y [evidencia de eventos](docs/evidencias/2026-11-23-issue-13-eventos.md).
 
 ## Ejecutar en local (Docker Desktop)
 ```bash
@@ -23,11 +23,13 @@ En Windows PowerShell: `Copy-Item .env.example .env`.
 ```bash
 docker compose exec backend ruff check .
 docker compose exec backend mypy app
-docker compose exec backend pytest -q
+docker compose exec -e TEST_POSTGRES_URL=postgresql+psycopg://ticketing:local-dev-only@db:5432/ticketing backend pytest -q
 docker compose exec frontend npm run lint
 docker compose exec frontend npx tsc --noEmit
 docker compose exec frontend npm test
 ```
+
+El comando de PostgreSQL usa las credenciales locales por defecto de Compose; ajustarlas si se cambiaron. Cada test crea y elimina solo su propio schema temporal.
 
 ## Cambios y etapas
 - Etapa I: núcleo, identidad, eventos, catálogo, inventario, compra, mockups.
@@ -39,5 +41,5 @@ Ver `docs/PLAN-EQUIPO.md`, `docs/ADR-0001.md`, `docs/BITACORA.md` y `CONTRIBUTE.
 ## Advertencias
 - Backend en un proceso: la separación real en microservicios y la estrategia de consistencia se definirán en changes posteriores.
 - Auditoría HTTP a logs sin credenciales; autenticación Bearer y roles disponibles en esta rama.
-- Alembic crea usuarios y sesiones. Eventos, inventario y compras requieren changes posteriores.
-- Docker y CI del bootstrap fueron verificados. La validación mediante CLI OpenSpec y el archivado del change siguen pendientes.
+- Alembic crea usuarios, sesiones y eventos (0002_events). Publicar sin zonas permite mostrar metadatos; no ofrece venta ni disponibilidad.
+- Change OpenSpec: [event-management](openspec/changes/event-management/proposal.md). Validaciones y estado de CI/revisión en su evidencia; no archivar hasta aceptar el PR.

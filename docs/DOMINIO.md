@@ -1,6 +1,6 @@
 # Modelo de dominio de la ticketera
 
-Propuesta del issue #4. Sin implementación ni migraciones de este dominio en este PR. [ADR de consistencia](ADR-0002.md).
+Modelo del issue #4. Event implementado por #13; inventario, órdenes, tickets y devoluciones todavía propuestos. [ADR de consistencia](ADR-0002.md).
 
 ## Entidades y relaciones
 
@@ -20,7 +20,7 @@ Propuesta del issue #4. Sin implementación ni migraciones de este dominio en es
 Los vínculos entre límites son referencias por ID; no autorizan a escribir tablas de otro módulo. Una orden pertenece a un solo evento y moneda. La cantidad debe ser positiva; dinero no usa float. El precio se copia en OrderItem para que el historial no cambie. Ticket no duplica propietario: se obtiene por su orden. No se exponen códigos de tickets a otros clientes ni al catálogo público.
 
 ## Ciclos de vida y restricciones
-- Event: draft → published → draft si no tiene ventas. Publicar exige propietario autorizado, nombre, lugar, inicio futuro, fin posterior y al menos una zona configurada. No hay borrado de eventos con ventas.
+- Event: draft → published → draft si no tiene ventas. Publicar exige propietario autorizado (o administrador), nombre, descripción, lugar, inicio futuro y fin posterior. En #13 no exige zonas: publicación da visibilidad, sin habilitar compra. Editar requiere draft e inicio futuro; publicar/despublicar repetido conserva estado. Cuando existan ventas, integrar la restricción de despublicación y exigir inventario para comprar. No hay endpoint de borrado.
 - Seat: available → sold → available al devolver. Para general se reduce/aumenta available. No se mezclan modos dentro de una zona ni se cambia el modo después de publicar.
 - Order: confirmed → partially_refunded → refunded, o confirmed → refunded cuando se devuelve todo. No se crea una orden pending sin pago real; una compra rechazada no persiste orden.
 - Ticket: valid → refunded, sin transición inversa. No incluye validación de acceso al recinto en esta etapa.
@@ -38,7 +38,7 @@ Los vínculos entre límites son referencias por ID; no autorizan a escribir tab
 - Identity entrega usuario autenticado y rol; el servidor asigna owner_id/customer_id desde esa identidad.
 - Events expone catálogo paginado y detalle de publicados. La edición de borradores requiere owner o administrador.
 - Ticketing recibe `{event_id, items: [{zone_id, quantity, seat_ids}]}` e `Idempotency-Key`. En numbered, quantity coincide con la longitud de seat_ids; en general seat_ids vacío. Responde orden con tickets, importes calculados y moneda.
-- `POST /api/v1/orders`, `GET /api/v1/orders/{id}`, `GET /api/v1/me/tickets`, `POST /api/v1/tickets/{id}/refund` solicita una devolución pendiente; `POST /api/v1/admin/refunds/{id}/approve` y `/reject` resuelven la solicitud. Las tres rutas de devolución corresponden a Etapa III. Todas son rutas futuras. El contrato de frontend del issue #3 detallará ejemplos; no existen en el bootstrap.
+- `POST /api/v1/orders`, `GET /api/v1/orders/{id}`, `GET /api/v1/me/tickets`, `POST /api/v1/tickets/{id}/refund` solicita una devolución pendiente; `POST /api/v1/admin/refunds/{id}/approve` y `/reject` resuelven la solicitud. Las tres rutas de devolución corresponden a Etapa III. Las rutas de compra/devolución son futuras; eventos y catálogo están implementados en #13. El contrato de frontend del issue #3 detallará ejemplos; detalla el alcance disponible en esta rama.
 
 ## Matriz de aceptación planificada
 
@@ -60,7 +60,7 @@ Los vínculos entre límites son referencias por ID; no autorizan a escribir tab
 | Devolución ajena | Otro cliente intenta devolver | 403; snapshot de tablas idéntico |
 | Solicitud/aprobación tardía (III) | Evento iniciado | 409; sin cambios; aún se permite rechazar una solicitud pendiente |
 | Revender asiento | Solicitar, aprobar como administrador y recomprar con nueva orden | Ticket anterior inválido; exactamente uno nuevo válido |
-| Publicación incompleta | Sin zona o fecha inválida | 422; estado draft |
+| Publicación incompleta | Sin descripción o fecha inválida | 422; estado draft. Sin zonas sí se permite publicar metadatos (#13), sin habilitar compra |
 | Edición ajena | Owner B edita evento de A | 403; contenido y estado intactos |
 | Notificación caída | Falla consumidor después del commit | Orden confirmada; entrega pendiente/reintentable |
 
