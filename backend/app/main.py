@@ -1,6 +1,6 @@
+import logging
 from time import perf_counter
 from uuid import uuid4
-import logging
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
