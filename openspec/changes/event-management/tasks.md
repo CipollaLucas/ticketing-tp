@@ -1,10 +1,13 @@
-# Tasks
+# Tasks — event-management / Issue #13
 
-- [ ] Align event schemas and owner contract with authentication change.
-- [ ] Specify event lifecycle and validation rules.
-- [ ] Design database model and Alembic migration.
-- [ ] Implement owner-scoped create/edit/publish API.
-- [ ] Implement paginated public catalog and detail API.
-- [ ] Add permission, validation, lifecycle and pagination tests.
-- [ ] Document endpoint contracts and seed fixtures.
-- [ ] Run validation and archive after CI/review; record evidence.
+- [x] Acordar contrato de propietario con autenticación y API propuesta.
+- [x] Definir ciclo de borrador y validaciones de fechas/propiedad.
+- [x] Crear modelo Event y migración Alembic reversible.
+- [x] Crear endpoints de borrador, edición, listado privado y catálogo público.
+- [x] Bloquear publicación sin zonas y visibilidad pública de borradores.
+- [x] Añadir pruebas de permisos, validación, paginación y bloqueo de publicación.
+- [ ] Verificar localmente Docker, Pytest, Ruff, mypy y migraciones; registrar resultados reales.
+- [ ] Validar OpenSpec y CI del PR, incorporar revisión cruzada.
+- [ ] **Implementación posterior:** crear zonas/inventario y habilitar publicación exitosa.
+- [ ] **Implementación posterior:** probar catálogo con eventos realmente publicados y despublicación segura.
+- [ ] Archivar solo cuando los requisitos completos estén implementados y aceptados.
