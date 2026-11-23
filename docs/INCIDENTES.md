@@ -24,4 +24,4 @@ En GitHub Actions, ejecución 45179148416, el job backend falló en Ruff I001; D
 - Completar estado con resultado real, SHA y URL de PR.
 - Mantener pendiente warning de Starlette/httpx como mejora separada.
 
-Estado: **Corrección propuesta / pendiente de validar en CI y local**.
+Estado: **Resuelta — 2026-11-23**. PR #1 mergeado (main 2ce1b192). Evidencia local: pytest 2 passed, 1 warning; Ruff sin errores; mypy sin errores. CI: 3/3 checks exitosos. Warning de Starlette/httpx pendiente como deuda técnica.
