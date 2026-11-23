@@ -33,9 +33,9 @@ Archivos: docs/API-ETAPA-I.md, docs/DOMINIO.md, README.md, docs/BITACORA.md,
 docs/evidencias/2026-11-23-issue-13-eventos.md y este change.
 - [x] Documentar publicación sin zonas, límites y ejemplos reproducibles de API.
 - [x] Verificar backend, frontend, Compose y OpenSpec estricto; registrar resultados reales.
-- [ ] Revisar diff completo, hacer commit Conventional Commit y push de esta rama.
-- [ ] Abrir PR contra main vinculado a #13 y solicitar revisión a CipollaLucas.
-- [ ] Comprobar CI remoto; dejar revisión/aceptación y archivado pendientes.
+- [x] Revisar diff completo, hacer commit Conventional Commit y push de esta rama.
+- [x] Abrir PR contra main vinculado a #13 y solicitar revisión a CipollaLucas.
+- [x] Comprobar CI remoto; dejar revisión/aceptación y archivado pendientes.
 
 Foco de revisión: PATCH null/fechas parciales; administración ajena sin transferir
 propiedad; borradores inaccesibles; orden estable con fechas iguales; conservación
@@ -52,3 +52,4 @@ de identidad al revertir migración. Cada punto tiene cobertura en tareas 1 o 2.
 - Revisión independiente: dos P2 (NUL/overflow UTC), reproducidos y corregidos;
   cinco regresiones RED → GREEN y suite completa verde. Sin menores diferidos.
 - Decisiones y fallos intermedios: ver evidencia del issue #13.
+- PR #18 abierto, revisión solicitada a CipollaLucas; CI de implementación 3/3 verde (run 45272093621).

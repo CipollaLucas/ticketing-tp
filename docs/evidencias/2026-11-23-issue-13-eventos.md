@@ -96,6 +96,18 @@ corregidos con validación de entrada y regresiones:
 
 ## Entrega remota
 
-Pendiente de publicar commit, abrir PR a main, solicitar revisión a CipollaLucas
-y comprobar CI. La revisión humana, aceptación y archivado siguen pendientes.
-No se hizo commit, push ni merge sobre main.
+PR [#18](https://github.com/CipollaLucas/ticketing-tp/pull/18) abierto contra main,
+con `Closes #13` y revisión solicitada a `CipollaLucas`. Commit de implementación:
+`e4a008b8ce569ad6d6a5055fffddd85bbabadeda`.
+
+Git HTTPS local no dispone de credenciales (push terminó exit 128). Se publicó
+mediante la conexión GitHub autenticada como karmanino; árbol remoto y local
+idénticos: `9e5ae6edf1c5618b16680ff45b45f0a89b19d9f9`. Fetch y rebase omitieron
+el commit local equivalente, dejando la rama sincronizada con origin.
+
+CI del commit de implementación: [run 45272093621](https://github.com/CipollaLucas/ticketing-tp/actions/runs/45272093621),
+**3/3 jobs completed/success** (backend, frontend y docker), verificados por API.
+Este registro se agrega en un commit documental posterior; el estado del último
+head se vuelve a comprobar y se mantiene en el PR antes de entregar.
+La revisión humana, aceptación y archivado siguen pendientes. No se hizo commit,
+push ni merge sobre main.
