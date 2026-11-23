@@ -3,7 +3,7 @@
 Trabajo práctico grupal (3 integrantes). Basado metodológicamente en [ticketin](https://github.com/jwackito/ticketin); implementación propia.
 
 ## Estado
-**Bootstrap inicial preparado, pendiente de primera ejecución y validación del equipo.** No hay venta real implementada.
+**Bootstrap validado localmente y en CI (PR #1).** Backend: 2 tests, Ruff/mypy OK; frontend y Docker: CI verde. No hay venta real implementada.
 
 ## Ejecutar en local (Docker Desktop)
 ```bash
@@ -39,4 +39,4 @@ Ver `docs/PLAN-EQUIPO.md`, `docs/ADR-0001.md`, `docs/BITACORA.md` y `CONTRIBUTE.
 - Backend en un proceso: la separación real en microservicios y la estrategia de consistencia se definirán en changes posteriores.
 - Auditoría HTTP inicial a logs; autenticación aún no existe.
 - Alembic figura como dependencia, pero las migraciones y modelos del dominio se implementarán en un change posterior.
-- La primera ejecución, las pruebas CI y la validación OpenSpec deben ser verificadas en el entorno del equipo.
+- Docker y CI del bootstrap fueron verificados. La validación mediante CLI OpenSpec y el archivado del change siguen pendientes.
