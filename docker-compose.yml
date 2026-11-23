@@ -19,6 +19,7 @@ services:
     build: ./backend
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://ticketing:local-dev-only@db:5432/ticketing}
+      SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS:-3600}
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
