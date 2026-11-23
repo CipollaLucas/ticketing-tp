@@ -5,11 +5,11 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.auth import CurrentUser, Db, require_event_owner, require_owner_or_admin
+from app.auth import Db, require_event_owner, require_owner_or_admin
 from app.models import Event, EventStatus, Role, User
 
 router = APIRouter(prefix="/api/v1", tags=["Events"])
@@ -144,7 +144,7 @@ def publish_event(event_id: UUID, owner: EventOwner, db: Db) -> Event:
     if not all((event.name, event.venue, event.start_at, event.end_at)):
         raise HTTPException(422, "Complete the event details before publishing")
     validate_date_range(event)
-    if event.start_at is not None and event.start_at <= datetime.now(UTC):
+    if event.start_at is not None and event.start_at.replace(tzinfo=UTC) <= datetime.now(UTC):
         raise HTTPException(422, "Event must start in the future")
     # Zones/inventory belong to the next change. Never publish saleable events without them.
     raise HTTPException(422, "Ticket zones must be configured before publishing")
