@@ -60,3 +60,8 @@ solicitada. Compra se entrega en PR dependiente; fusionar #23 primero y retarget
 compra a main. No fusionar automáticamente ni archivar changes antes de aprobación
 humana y CI verificado. La fase completa requiere revisar pendientes del TP
 (microservicios físicos y organización de changes por etapa incluidos).
+
+CI GitHub del PR #24 sobre 32ceaa1: run [45283079113](https://github.com/CipollaLucas/ticketing-tp/actions/runs/45283079113),
+backend/frontend/docker/openspec concluidos success. PRs #23/#24 abiertos, revisión
+CipollaLucas solicitada en ambos. Este registro posterior es solo documental;
+la verificación del head final del PR se informa también en GitHub.

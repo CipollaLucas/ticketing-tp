@@ -8,5 +8,5 @@ Foco: canonicalización, fallo tras descuento, última localidad, propiedad, mon
 - [x] 4. Integrar disponibilidad y guard de despublicación; verificar tests SQLite.
 - [x] 5. Añadir pruebas PostgreSQL de concurrencia, estrés inicial y rollback, y migración reversible.
 - [x] 6. Documentar API/dominio/bitácora/evidencia; ejecutar suite, Ruff, mypy, OpenSpec y revisión independiente.
-- [ ] 7. Abrir PR apilado, pedir revisión a Lucas y verificar CI.
+- [x] 7. Abrir PR apilado, pedir revisión a Lucas y verificar CI.
 - [ ] 8. Aprobar y fusionar PRs en orden; no archivar hasta cumplir revisión/CI (fuera de esta ejecución).

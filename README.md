@@ -3,7 +3,7 @@
 Trabajo práctico grupal (3 integrantes). Basado metodológicamente en [ticketin](https://github.com/jwackito/ticketin); implementación propia.
 
 ## Estado
-**Etapa I en curso.** Identidad y eventos integrados. Los changes #21/#22 agregan inventario, compra simulada idempotente, órdenes y tickets con tests de concurrencia PostgreSQL. Ver [contratos](docs/API-ETAPA-I.md), [evidencia de inventario](docs/evidencias/2026-11-23-issue-21-inventario.md) y [evidencia de compra](docs/evidencias/2026-11-23-issue-22-compra.md). Pendientes de revisión/merge: PRs #23 y dependiente de compra. No se declara cerrada toda la fase: arquitectura física de microservicios, consolidación de changes por etapa e integración de UI deben evaluarse con el equipo.
+**Etapa I en curso.** Identidad y eventos integrados. Los changes #21/#22 agregan inventario, compra simulada idempotente, órdenes y tickets con tests de concurrencia PostgreSQL. Ver [contratos](docs/API-ETAPA-I.md), [evidencia de inventario](docs/evidencias/2026-11-23-issue-21-inventario.md) y [evidencia de compra](docs/evidencias/2026-11-23-issue-22-compra.md). Pendientes de revisión/merge: PRs [#23](https://github.com/CipollaLucas/ticketing-tp/pull/23) y [#24](https://github.com/CipollaLucas/ticketing-tp/pull/24). No se declara cerrada toda la fase: arquitectura física de microservicios, consolidación de changes por etapa e integración de UI deben evaluarse con el equipo.
 
 ## Ejecutar en local (Docker Desktop)
 ```bash
