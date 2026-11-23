@@ -1,0 +1,5 @@
+schema: spec-driven
+context: |
+  Trabajo final de Tópicos II 2026. Plataforma de ticketing con tres roles y etapas incrementales.
+  Stack: FastAPI, React, PostgreSQL y Docker.
+  Equipo: 3 personas. Requiere CI y documentación trazable.
