@@ -3,15 +3,18 @@ from time import perf_counter
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.auth import router as auth_router
 from app.settings import settings
 
 logger = logging.getLogger("ticketing.http")
 app = FastAPI(title="Ticketing TP", version="0.1.0")
+app.include_router(auth_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
@@ -51,3 +54,10 @@ def health():
 @app.get("/api/v1")
 def api_root():
     return {"message": "Ticketing API v1", "stage": "bootstrap"}
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error(request: Request, exc: RequestValidationError):
+    # Preserve FastAPI's 422 shape while omitting credentials submitted as input.
+    errors = [{key: error[key] for key in ("loc", "msg", "type")} for error in exc.errors()]
+    return JSONResponse(status_code=422, content={"detail": errors})
