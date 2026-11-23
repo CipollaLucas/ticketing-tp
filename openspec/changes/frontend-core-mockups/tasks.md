@@ -9,3 +9,5 @@
 - [ ] Revisar con el equipo los contratos propuestos antes de integrarlos.
 - [ ] Publicar rama y abrir PR con revisión cruzada cuando haya acceso.
 - [ ] Verificar CI del PR y archivar en un PR posterior a aceptación.
+
+- [x] Corregir contrato de devoluciones de Etapa III: cliente solicita pending; administrador aprueba/rechaza; solo aprobar libera inventario.

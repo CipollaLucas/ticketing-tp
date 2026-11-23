@@ -11,3 +11,6 @@ Rama: `docs/frontend-core-mockups`. Change: `frontend-core-mockups`.
 - Enfoque publicado en https://github.com/CipollaLucas/ticketing-tp/issues/3#issuecomment-7112000821.
 - PR/CI/revisión cruzada pendientes: usuario pidió conservar ramas locales hasta tener acceso. No archivado.
 - Título sugerido: `docs: agregar mockups y contratos de Etapa I (issue #3)`. Body: prototipo independiente, contratos de identidad alineados con #6 y dominio propuesto #4, operaciones futuras explícitas; `Closes #3` al abrir PR.
+
+## Corrección del enunciado (2026-11-23)
+Contrato futuro de devolución: pending → aprobación/rechazo administrativo, solo aprobación repone inventario. Etiqueta del mockup corregida para indicar solicitud de Etapa III. No se implementó devolución ni se declara probado ese flujo. Sintaxis JavaScript y ejemplos JSON verificados; OpenSpec estricto repetido.

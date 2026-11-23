@@ -22,7 +22,9 @@ Issue #3. Propuesta de integración para revisión cruzada; no declara endpoints
 | POST /orders | Customer, Idempotency-Key obligatorio | 201 Order | Futura, compra simulada sin pago |
 | GET /orders/{order_id} | Customer propietario/admin | 200 Order | Futura |
 | GET /me/tickets?limit=20&offset=0 | Customer, solo propios | 200 página | Futura |
-| POST /tickets/{ticket_id}/refund | Customer propietario/admin, antes del inicio | 200 Refund | Futura |
+| POST /tickets/{ticket_id}/refund | Customer propietario, antes del inicio (política propuesta) | 201 Refund pending; replay 200 | Futura, Etapa III |
+| POST /admin/refunds/{refund_id}/approve | Administrador, antes del inicio (política propuesta) | 200 Refund approved | Futura, Etapa III |
+| POST /admin/refunds/{refund_id}/reject | Administrador, motivo obligatorio | 200 Refund rejected | Futura, Etapa III |
 
 Los tres PRs se mantienen independientes: #3 documenta la interfaz; #6 la implementa parcialmente; #4 propone el dominio. La tabla describe el destino esperado después de revisar/mergear, no el estado de main.
 
@@ -70,11 +72,19 @@ Misma identidad/key/payload: mismo Order, 201 y `Idempotency-Replayed: true`; ke
 
 `GET /me/tickets`: página de tickets con event_id/name/start_at, order_id, zone_id/name, seat_id/label nullable y status. Nunca devuelve tickets ajenos. No incluye QR real en el mockup.
 
-Refund recibe `{}`. Respuesta:
+### Devoluciones — propuesta para Etapa III
+
+El cliente propietario solicita con `POST /tickets/{ticket_id}/refund`, body `{}`. Respuesta inicial 201:
 ```json
-{"id":"00000000-0000-0000-0000-000000000050","ticket_id":"00000000-0000-0000-0000-000000000040","amount":1200000,"currency":"ARS","status":"completed"}
+{"id":"00000000-0000-0000-0000-000000000050","ticket_id":"00000000-0000-0000-0000-000000000040","amount":1200000,"currency":"ARS","status":"pending","reviewed_by":null,"reviewed_at":null,"rejection_reason":null}
 ```
-Un solo Refund por ticket; repetir devuelve el mismo (200) sin reponer otra vez. Ticket pasa a refunded; Order pasa a partially_refunded o refunded. Solo antes del inicio; después: 409. No representa devolución monetaria real.
+El ticket sigue válido y el inventario no se libera. Repetir devuelve la misma solicitud (200), incluso si ya fue resuelta; no crea otra solicitud ni muta su decisión. La propuesta inicial admite una solicitud por ticket; reapertura tras rechazo queda por acordar.
+
+Solo administrador decide:
+- `POST /admin/refunds/{refund_id}/approve`, body `{}`: 200 con status approved, reviewed_by y reviewed_at. En la misma transacción invalida el ticket, actualiza la orden y libera el lugar exactamente una vez.
+- `POST /admin/refunds/{refund_id}/reject`, body `{"reason":"No cumple la política de devolución"}`: 200 con status rejected, reviewed_by, reviewed_at y rejection_reason. El motivo no puede estar vacío. No cambia ticket, orden ni inventario.
+
+Repetir la misma decisión devuelve el resultado previo (200) sin nuevos efectos; intentar la decisión opuesta recibe 409. En una carrera gana una sola transición terminal. Cliente u owner que intenta decidir: 403; solicitud sobre ticket ajeno: 403. Propuesta de fechas: solicitar/aprobar antes del inicio (409 después); rechazar pendientes sigue permitido. No representa devolución monetaria real. Estas rutas no se implementan ni se exigen para cerrar Etapa I.
 
 ## Errores y tratamiento en UI
 
