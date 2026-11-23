@@ -27,3 +27,11 @@ Los responsables se identifican provisoriamente como A, B y C. Cada PR necesita 
 - Nunca se mergea un PR rojo; la implementación se revisa contra specs.
 - Cambios de API/esquema primero como contrato documentado.
 - Criterio de cierre: tests + docs + CI + PR + OpenSpec archivado.
+
+## Estado real y próximos cambios (23/11/2026)
+
+- PR #1: validación backend, mergeado; INC-001 resuelta.
+- PR #5: limpieza de carpeta duplicada, mergeado; evidencia preservada.
+- Issues asignables: #3 mockups/contratos, #4 modelo de dominio, #6 autenticación/roles.
+- OpenSpec de Etapa I en propuesta: `authentication-and-roles`, `event-management`, `frontend-core-mockups`. Estos changes aún no están implementados ni validados por CLI.
+- Cada integrante debe ser asignado nominalmente al Issue por GitHub cuando se conozca su usuario. La aprobación de specs precede al desarrollo.
