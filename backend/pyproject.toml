@@ -17,6 +17,14 @@ include = ["app*"]
 [tool.ruff]
 line-length = 100
 
+[tool.ruff.lint]
+# Docker Desktop on Windows can expose bind-mounted .py files as executable.
+ignore = ["EXE002"]
+
 [tool.mypy]
 python_version = "3.12"
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
