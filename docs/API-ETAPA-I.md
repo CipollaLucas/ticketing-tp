@@ -153,3 +153,17 @@ Errores de dominio/HTTP: `{"detail":"mensaje"}`. Validación nativa FastAPI 422:
 | 503 / red | Operación no disponible | Mostrar error y retry; nunca afirmar una compra sin respuesta confirmada |
 
 Primero autenticar y verificar permisos; para escritura por ID verificar propietario antes de mutar. Un recurso conocido de otro propietario da 403. No se registran passwords, tokens ni bodies sensibles. Estado vacío/cargando/error nunca se muestra como compra exitosa. Tokens de ejemplo y montos del prototipo no se usan en producción.
+
+## Inventario — issue #21
+- POST `/events/{event_id}/zones`: owner propio/admin, draft futuro. General:
+  `{"name":"Campo","mode":"general","capacity":100,"price_minor":1500,"currency":"ARS"}`.
+  Numerada: `{"name":"Platea","mode":"numbered","seats":[{"label":"A1"}],"price_minor":2500,"currency":"ARS"}`.
+- GET `/events/{event_id}/inventory`: público, solo published; borrador/inexistente 404.
+- GET `/owner/events/{event_id}/inventory`: owner propio/admin, incluye borrador.
+- Respuesta: `{event_id,zones:[{id,name,mode,price_minor,currency,capacity,available,seats:[{id,label,available}]}]}`.
+  En numbered capacity es null; available cuenta asientos disponibles.
+- 201 creación; 401/403 permisos, 409 publicado/pasado/duplicado, 422 payload inválido.
+  Enteros estrictos; precio 0..2147483647, cupo 1..1000000; 1..1000 asientos
+  numerados con etiquetas únicas (1..50). Nombre 1..100 único por evento.
+  Monedas ISO soportadas: ARS, USD, EUR. Zonas inmutables, sin edición/borrado.
+- Publicar no requiere zonas (ADR-0004). La disponibilidad no reserva ni garantiza compra.

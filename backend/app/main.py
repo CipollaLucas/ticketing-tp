@@ -11,12 +11,14 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.auth import router as auth_router
 from app.events import router as events_router
+from app.inventory import router as inventory_router
 from app.settings import settings
 
 logger = logging.getLogger("ticketing.http")
 app = FastAPI(title="Ticketing TP", version="0.1.0")
 app.include_router(auth_router)
 app.include_router(events_router)
+app.include_router(inventory_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
