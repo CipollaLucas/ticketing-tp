@@ -1,6 +1,6 @@
 # Modelo de dominio de la ticketera
 
-Modelo del issue #4. Event implementado por #13; inventario implementado por #21; órdenes, tickets y devoluciones todavía propuestos. [ADR de consistencia](ADR-0002.md).
+Modelo del issue #4. Event implementado por #13; inventario implementado por #21; órdenes y tickets implementados por #22; devoluciones todavía propuestas. [ADR de consistencia](ADR-0002.md).
 
 ## Entidades y relaciones
 
@@ -38,7 +38,7 @@ Los vínculos entre límites son referencias por ID; no autorizan a escribir tab
 - Identity entrega usuario autenticado y rol; el servidor asigna owner_id/customer_id desde esa identidad.
 - Events expone catálogo paginado y detalle de publicados. La edición de borradores requiere owner o administrador.
 - Ticketing recibe `{event_id, items: [{zone_id, quantity, seat_ids}]}` e `Idempotency-Key`. En numbered, quantity coincide con la longitud de seat_ids; en general seat_ids vacío. Responde orden con tickets, importes calculados y moneda.
-- `POST /api/v1/orders`, `GET /api/v1/orders/{id}`, `GET /api/v1/me/tickets`, `POST /api/v1/tickets/{id}/refund` solicita una devolución pendiente; `POST /api/v1/admin/refunds/{id}/approve` y `/reject` resuelven la solicitud. Las tres rutas de devolución corresponden a Etapa III. Las rutas de compra/devolución son futuras; eventos y catálogo están implementados en #13. El contrato de frontend del issue #3 detallará ejemplos; detalla el alcance disponible en esta rama.
+- `POST /api/v1/orders`, `GET /api/v1/orders/{id}`, `GET /api/v1/me/tickets`, `POST /api/v1/tickets/{id}/refund` solicita una devolución pendiente; `POST /api/v1/admin/refunds/{id}/approve` y `/reject` resuelven la solicitud. Las tres rutas de devolución corresponden a Etapa III. Las rutas de compra están implementadas por #22; devoluciones son futuras. Eventos y catálogo están implementados en #13. El contrato de frontend del issue #3 detallará ejemplos; detalla el alcance disponible en esta rama.
 
 ## Matriz de aceptación planificada
 
@@ -64,6 +64,12 @@ Los vínculos entre límites son referencias por ID; no autorizan a escribir tab
 | Edición ajena | Owner B edita evento de A | 403; contenido y estado intactos |
 | Notificación caída | Falla consumidor después del commit | Orden confirmada; entrega pendiente/reintentable |
 
-Las pruebas de compra/eventos corresponden a Etapa I; las de devolución a Etapa III. SQLite o mocks no demuestran locks ni concurrencia de PostgreSQL. La aceptación documental actual consiste en trazabilidad de cada regla y escenarios OpenSpec válidos; no se reportan ventas ni pruebas de concurrencia ejecutadas.
+Las pruebas de compra/eventos corresponden a Etapa I; las de devolución a Etapa III. SQLite o mocks no demuestran locks ni concurrencia de PostgreSQL. La evidencia de #21/#22 registra los tests reales de inventario, compra, rollback y concurrencia PostgreSQL. Las devoluciones continúan sin implementación.
 
 Implementación #21: Zone integra Capacity en columnas nullable exclusivas de general. Seat tiene UUID global y etiqueta única por zona; FK zona/modo impide asientos en general. Ver ADR-0004.
+
+Implementación #22: Order integra el registro de idempotencia (UNIQUE customer/key,
+request_hash), sin tabla separada; estado único confirmed. Ticket tiene UNIQUE seat_id
+histórico y FK compuestas para zona/asiento/item. Total y precios históricos usan
+BIGINT y sufijo `_minor`. Stock y emisión se confirman juntos; restricciones de
+refund/venta activa de Etapa III requerirán ampliar este modelo mediante otro change.

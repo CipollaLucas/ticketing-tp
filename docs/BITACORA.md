@@ -16,3 +16,5 @@ Registrar decisiones, enlace a PR, resultados de tests, fallos y correcciones po
 | 2026-11-23 | karmanino + Codex | event-management / #13 | [Evidencia](evidencias/2026-11-23-issue-13-eventos.md): eventos, publicación sin inventario y catálogo; migración reversible; 102 tests host/Docker con PostgreSQL, Ruff/mypy y frontend OK; revisión independiente y regresiones | [PR #18](https://github.com/CipollaLucas/ticketing-tp/pull/18), revisión solicitada a CipollaLucas; CI de implementación 3/3 verde (run 45272093621); aprobación/archivado pendientes; Etapa I no completa |
 
 - 2026-11-23 — #21: change ticket-inventory, zonas/asientos, Alembic 0003 y ADR-0004; tests SQLite/PostgreSQL y evidencia dedicada. Pendiente revisión/CI del PR.
+
+- 2026-11-23 — #22: ticket-purchasing, compra atómica/idempotente, órdenes y tickets; Alembic 0004, locks PostgreSQL, pruebas de último lugar/replay/rollback/estrés inicial. PR dependiente de #23, revisión Lucas; ver evidencia.
