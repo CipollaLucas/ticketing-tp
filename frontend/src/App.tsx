@@ -12,6 +12,7 @@ const sampleEvents = [
 ] as const;
 
 function initialPage(): Page {
+  if (typeof window === 'undefined') return 'catalog';
   const value = window.location.hash.slice(1);
   return (['catalog', 'detail', 'access', 'checkout', 'tickets', 'owner', 'admin'] as string[]).includes(value)
     ? value as Page : 'catalog';
@@ -31,7 +32,7 @@ export default function App() {
     setPage(next);
     setNotice('');
     window.location.hash = next;
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    window.scrollTo({ top: 0, behavior: 'auto' });
   }
 
   function demoAction(action = 'Esta acción') {
