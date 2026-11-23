@@ -60,7 +60,7 @@ export default function App() {
         poster: 'lime', word: selectedLiveEvent.name,
         description: selectedLiveEvent.description,
       }
-      : null;
+      : sampleEvents[0];
 
   useEffect(() => {
     if (isDemo) return;
@@ -146,6 +146,7 @@ export default function App() {
           </select>
         </label>
       </header>
+      {!isDemo && page === 'checkout' && <div className="notice" role="status">Las compras no están habilitadas. Volvé al catálogo.</div>}
       {notice && <div className="notice" role="status"><span>{notice}</span><button onClick={() => setNotice('')} aria-label="Cerrar aviso">×</button></div>}
 
       <main id="page-content" tabIndex={-1}>
@@ -186,7 +187,7 @@ export default function App() {
           <div className="form-panel alt-panel"><span className="panel-number">02 / REGISTRARSE</span><h2>Sumate al plan.</h2><label>Nombre visible de ejemplo<input readOnly value="Ana" /></label><p className="fine-print">El registro real requiere usuario, contraseña y nombre. Crea únicamente cuentas de cliente.</p><button className="btn btn-outline" onClick={() => demoAction('El registro')}>Simular registro ↗</button></div>
         </div></section>}
 
-        {page === 'checkout' && <section className="inner-page"><button className="back-link" onClick={() => navigate('detail')}>← Volver al evento</button><p className="eyebrow">COMPRA / RECORRIDO SIMULADO</p><h1 className="inner-title">Tu próximo<br /><em>recuerdo.</em></h1><div className="detail-grid"><form className="form-panel" onSubmit={event => { event.preventDefault(); demoAction('La confirmación de compra'); }}><h2>Seleccioná tu entrada</h2><label>Zona<select value={zone} onChange={event => setZone(event.target.value as 'general' | 'numbered')}><option value="general">General · sin numerar</option><option value="numbered">Platea · numerada (ejemplo)</option></select></label><label>Cantidad<input type="number" min="1" max="4" required value={quantity} onChange={event => setQuantity(Number(event.target.value))} /></label><p className="fine-print">{zone === 'general' ? 'La zona general no necesita seleccionar asientos.' : 'La selección de asientos numerados se desarrollará con el módulo de inventario.'}</p><button className="btn btn-dark" type="submit">Probar confirmación ↗</button></form>
+        {page === 'checkout' && isDemo && <section className="inner-page"><button className="back-link" onClick={() => navigate('detail')}>← Volver al evento</button><p className="eyebrow">COMPRA / RECORRIDO SIMULADO</p><h1 className="inner-title">Tu próximo<br /><em>recuerdo.</em></h1><div className="detail-grid"><form className="form-panel" onSubmit={event => { event.preventDefault(); demoAction('La confirmación de compra'); }}><h2>Seleccioná tu entrada</h2><label>Zona<select value={zone} onChange={event => setZone(event.target.value as 'general' | 'numbered')}><option value="general">General · sin numerar</option><option value="numbered">Platea · numerada (ejemplo)</option></select></label><label>Cantidad<input type="number" min="1" max="4" required value={quantity} onChange={event => setQuantity(Number(event.target.value))} /></label><p className="fine-print">{zone === 'general' ? 'La zona general no necesita seleccionar asientos.' : 'La selección de asientos numerados se desarrollará con el módulo de inventario.'}</p><button className="btn btn-dark" type="submit">Probar confirmación ↗</button></form>
           <aside className="side-panel"><span className="eyebrow">RESUMEN DE EJEMPLO</span><h3>{currentEvent.title}</h3><p>{quantity} {quantity === 1 ? 'entrada' : 'entradas'} · {zone === 'general' ? 'General' : 'Platea'}</p><p className="price">{currentEvent.price}</p><p className="fine-print">No se realizan pagos, reservas ni emisiones de tickets. El total mostrado no se calcula en el servidor.</p><button className="text-link" onClick={() => navigate('tickets')}>Ver tickets de ejemplo ↗</button></aside></div></section>}
 
         {page === 'tickets' && <section className="inner-page"><p className="eyebrow">CLIENTE / VISTA SIMULADA</p><h1 className="inner-title">Tus próximos<br /><em>recuerdos.</em></h1><p className="page-intro">Ejemplos visuales. No representan entradas emitidas.</p><article className="sample-ticket"><div><span className="soft-pill">EJEMPLO · NO VÁLIDO</span><h2>Noche de bandas</h2><p>15 MAY 2027 · Zona general · 1 entrada</p><span>Orden DEMO-001 · Sin QR ni código de ingreso</span></div><button className="btn btn-outline" onClick={() => demoAction('La solicitud de devolución')}>Devolución (Etapa III)</button></article></section>}
