@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ticketing · Prototipo de Etapa I</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="prototype.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#content">Ir al contenido</a>
+<div class="demo">PROTOTIPO · Datos ficticios. No inicia sesiones, no cobra ni emite entradas.</div>
+<header>
+  <a class="brand" href="#catalog">ticketing<span> / tp</span></a>
+  <nav aria-label="Principal">
+    <a href="#catalog">Explorar</a><a href="#access">Acceder</a>
+    <a href="#tickets" data-role="customer">Mis tickets</a>
+    <a href="#owner" data-role="event_owner">Mis eventos</a>
+    <a href="#admin" data-role="administrator">Administración</a>
+  </nav>
+  <label class="role">Vista simulada
+    <select id="role"><option value="visitor">Visitante</option><option value="customer">Cliente</option><option value="event_owner">Organizador</option><option value="administrator">Administrador</option></select>
+  </label>
+</header>
+<main id="content" tabindex="-1">
+  <p id="notice" class="notice" role="status" aria-live="polite" hidden></p>
+  <section id="catalog" aria-labelledby="catalog-title">
+    <p class="eyebrow">TU PRÓXIMO PLAN</p>
+    <h1 id="catalog-title">Algo bueno<br>está por pasar.</h1>
+    <p class="intro">Música, encuentros y experiencias. Encontrá tu lugar.</p>
+    <div class="toolbar"><h2>Explorá los eventos</h2><label>Estado de ejemplo <select id="catalog-state"><option value="ready">Con resultados</option><option value="loading">Cargando</option><option value="empty">Vacío</option><option value="error">Error</option></select></label></div>
+    <div id="catalog-message" role="status" hidden></div>
+    <div id="event-grid" class="grid">
+      <article class="event-card"><div class="poster poster-one"><span>EN VIVO / 2027</span><strong>La ciudad<br>suena.</strong></div><div class="card-body"><p class="eyebrow">15 MAY · 20:00 ART</p><h3>Noche de bandas</h3><p>Centro Cultural · La Plata</p><p>Desde <strong>ARS 12.000</strong></p><a class="button" href="#detail">Ver evento <span aria-hidden="true">↗</span></a></div></article>
+      <article class="event-card"><div class="poster poster-two"><span>ENCUENTROS</span><strong>Ideas que<br>conectan.</strong></div><div class="card-body"><p class="eyebrow">22 MAY · 10:00 ART</p><h3>Jornada de tecnología</h3><p>Auditorio · La Plata</p><p>Próximamente · sin venta habilitada</p><button type="button" data-demo>Consultar disponibilidad</button></div></article>
+    </div>
+  </section>
+  <section id="detail" aria-labelledby="detail-title" hidden>
+    <a href="#catalog">← Volver al catálogo</a><p class="eyebrow">MÚSICA / EVENTO FICTICIO</p><h1 id="detail-title">Noche de bandas.</h1>
+    <div class="split"><div><div class="poster poster-one wide"><strong>La ciudad suena.</strong></div><h2>Una noche para encontrarnos</h2><p>Bandas locales y música en vivo en un mismo escenario. Información ilustrativa para validar la pantalla de detalle.</p><dl><dt>Cuándo</dt><dd>15 de mayo de 2027 · 20:00 ART (23:00 UTC)</dd><dt>Dónde</dt><dd>Centro Cultural, La Plata · lugar de ejemplo</dd></dl></div><aside><p class="eyebrow">ELEGÍ TU LUGAR</p><h2>Entradas</h2><p>General · no numerado</p><p class="price">ARS 12.000</p><p>Disponibilidad ilustrativa</p><a class="button" href="#checkout">Ver compra de ejemplo</a><p class="muted">El precio final y el cupo deberán confirmarse en el servidor.</p></aside></div>
+  </section>
+  <section id="access" aria-labelledby="access-title" hidden>
+    <p class="eyebrow">TU CUENTA</p><h1 id="access-title">Volvé a tus planes.</h1><p>Maqueta de acceso. No ingreses credenciales reales.</p>
+    <div class="grid"><article class="panel"><h2>Iniciar sesión</h2><p>El formulario real solicitará usuario y contraseña, y enviará JSON a <code>POST /auth/login</code>.</p><label for="login-user">Usuario de ejemplo</label><input id="login-user" value="cliente_demo" readonly><p class="field-preview">Contraseña: campo oculto en esta maqueta</p><button type="button" data-demo>Simular acceso</button><p class="error">Error de ejemplo: usuario o contraseña inválidos (401).</p></article><article class="panel"><h2>Crear cuenta</h2><label for="register-name">Nombre visible de ejemplo</label><input id="register-name" value="Ana" readonly><p>El registro real pedirá usuario, nombre visible y contraseña de 12 a 128 caracteres.</p><p>El alta siempre será como cliente. No se podrá elegir un rol elevado.</p><button type="button" data-demo>Simular registro</button><p class="error">Error de ejemplo: el usuario ya existe (409).</p></article></div>
+  </section>
+  <section id="checkout" aria-labelledby="checkout-title" hidden>
+    <p class="eyebrow">COMPRA / DEMOSTRACIÓN</p><h1 id="checkout-title">Un lugar para vos.</h1>
+    <div class="split"><form class="panel" id="checkout-form"><h2>Noche de bandas</h2><p>Cliente autenticado requerido en el flujo real.</p><label for="zone">Zona</label><select id="zone"><option>General · no numerado</option><option>Platea · numerado (ejemplo)</option></select><label for="quantity">Cantidad</label><input id="quantity" type="number" min="1" max="4" value="1" required><p id="seat-hint">General: cantidad sin selección de asientos.</p><button type="submit">Probar confirmación de demo</button><p class="error">Conflicto de ejemplo: el último lugar fue vendido (409). Reintentar debe conservar la clave de idempotencia.</p></form><aside><h2>Resumen ilustrativo</h2><p>1 entrada general</p><p class="price">ARS 12.000</p><p>Este importe es fijo en la maqueta; el servidor calculará el total real.</p><strong>No hay pagos conectados.</strong><p>Confirmar aquí no reserva cupo ni genera tickets.</p><a href="#tickets">Ver tickets de ejemplo →</a></aside></div>
+  </section>
+  <section id="tickets" aria-labelledby="tickets-title" hidden>
+    <p class="eyebrow">VISTA DE CLIENTE</p><h1 id="tickets-title">Tus próximos recuerdos.</h1><p>Ejemplo ficticio. No representa una compra realizada.</p>
+    <article class="ticket"><div><p class="eyebrow">15 MAY / NOCHE DE BANDAS</p><h2>General · 1 entrada</h2><p>Estado ilustrativo: válido · orden DEMO-001 · una solicitud de devolución queda pendiente hasta decisión administrativa</p><strong>Sin QR ni código de acceso válido</strong></div><button type="button" data-demo>Ver solicitud de devolución (Etapa III)</button></article>
+    <details><summary>Otros estados de esta vista</summary><p>Vacío: todavía no tenés entradas. <a href="#catalog">Explorar eventos</a>.</p><p>Cargando: buscando tus tickets…</p><p>Error: no pudimos cargar tus tickets. Reintentá sin duplicar compras.</p></details>
+  </section>
+  <section id="owner" aria-labelledby="owner-title" hidden>
+    <p class="eyebrow">VISTA DE ORGANIZADOR / SIMULADA</p><h1 id="owner-title">Dale lugar<br>a tu evento.</h1><p>El backend verificará que cada evento pertenezca al usuario autenticado.</p><button type="button" data-demo>Crear borrador</button>
+    <article class="ticket"><div><span class="pill">BORRADOR</span><h2>Nueva fecha acústica</h2><p>Faltan lugar y cupos para publicar.</p></div><button type="button" data-demo>Editar mi evento</button></article><p class="error">403 al editar un evento de otro organizador; no se modifica.</p><details><summary>Estados</summary><p>Cargando eventos… / No creaste eventos todavía / No pudimos cargar tus eventos.</p></details>
+  </section>
+  <section id="admin" aria-labelledby="admin-title" hidden>
+    <p class="eyebrow">VISTA DE ADMINISTRADOR / SIMULADA</p><h1 id="admin-title">Todo en su lugar.</h1><p>La navegación no otorga permisos: cada acción deberá ser autorizada por el backend.</p><article class="panel"><h2>Roles de usuarios</h2><label for="admin-user">ID de usuario de ejemplo</label><input id="admin-user" value="00000000-0000-0000-0000-000000000002" readonly><label for="new-role">Rol propuesto</label><select id="new-role"><option>customer</option><option>event_owner</option><option>administrator</option></select><button type="button" data-demo>Revisar cambio de rol</button><p>Solo administrador; no se permite cambiar el rol propio.</p></article><details><summary>Estados</summary><p>Cargando… / Usuario no encontrado (404) / Operación sin permiso (403) / Servicio no disponible.</p></details>
+  </section>
+</main>
+<footer><span>ticketing / Tópicos II 2026</span><a href="../API-ETAPA-I.md">Contratos HTTP propuestos</a><span>Prototipo independiente del frontend productivo</span></footer>
+</body>
+</html>
