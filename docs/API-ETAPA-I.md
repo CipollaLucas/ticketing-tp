@@ -1,24 +1,24 @@
-# Contratos HTTP propuestos — Etapa I
+# Contratos HTTP — Etapa I
 
-Issue #3. Propuesta de integración para revisión cruzada; no declara endpoints futuros implementados. Base: `/api/v1`. JSON UTF-8. IDs: UUID. Fechas ISO 8601 UTC. Precios en unidades menores enteras con moneda ISO, nunca float. Campos desconocidos de escritura se rechazan (422). Roles: `customer`, `event_owner`, `administrator`.
+Issues #3, #6 y #13. Identidad integrada en PR #12; eventos implementados en feat/event-management. Órdenes, inventario y devoluciones siguen siendo propuestas futuras. Base: `/api/v1`. JSON UTF-8. IDs: UUID. Fechas ISO 8601 UTC. Precios en unidades menores enteras con moneda ISO, nunca float. Campos desconocidos de escritura se rechazan (422). Roles: `customer`, `event_owner`, `administrator`.
 
 ## Disponibilidad y permisos
 
 | Método/ruta | Acceso | Éxito | Disponibilidad |
 |---|---|---|---|
-| POST /auth/register | Público, siempre crea customer | 201 User | Implementación en rama feat/authentication-and-roles (#6) |
-| POST /auth/login | Público | 200 Token | Rama #6 |
-| POST /auth/logout | Bearer válido | 204 sin body | Rama #6 |
-| GET /auth/me | Bearer válido | 200 User | Rama #6 |
-| PATCH /users/{user_id} | Mismo usuario o administrador | 200 User | Rama #6 |
-| PATCH /admin/users/{user_id}/role | Administrador | 200 User | Rama #6 |
-| GET /events?limit=20&offset=0 | Público, solo published | 200 página | Futura, event-management |
-| GET /events/{event_id} | Público, solo published | 200 Event | Futura |
-| GET /owner/events?limit=20&offset=0 | Owner, solo propios; admin todos | 200 página | Futura |
-| POST /events | Owner/admin, owner_id del servidor | 201 Event draft | Futura |
-| PATCH /events/{event_id} | Owner propio/admin | 200 Event | Futura |
-| POST /events/{event_id}/publish | Owner propio/admin | 200 Event | Futura |
-| POST /events/{event_id}/unpublish | Owner propio/admin, sin ventas | 200 Event draft | Futura |
+| POST /auth/register | Público, siempre crea customer | 201 User | Implementada (PR #12) |
+| POST /auth/login | Público | 200 Token | Implementada (PR #12) |
+| POST /auth/logout | Bearer válido | 204 sin body | Implementada (PR #12) |
+| GET /auth/me | Bearer válido | 200 User | Implementada (PR #12) |
+| PATCH /users/{user_id} | Mismo usuario o administrador | 200 User | Implementada (PR #12) |
+| PATCH /admin/users/{user_id}/role | Administrador | 200 User | Implementada (PR #12) |
+| GET /events?limit=20&offset=0 | Público, solo published | 200 página | Implementada (#13) |
+| GET /events/{event_id} | Público, solo published | 200 Event | Implementada (#13) |
+| GET /owner/events?limit=20&offset=0 | Owner, solo propios; admin todos | 200 página | Implementada (#13) |
+| POST /events | Owner/admin, owner_id del servidor | 201 Event draft | Implementada (#13) |
+| PATCH /events/{event_id} | Owner propio/admin | 200 Event | Implementada (#13) |
+| POST /events/{event_id}/publish | Owner propio/admin | 200 Event | Implementada (#13) |
+| POST /events/{event_id}/unpublish | Owner propio/admin; venta aún no implementada | 200 Event draft | Implementada (#13) |
 | POST /orders | Customer, Idempotency-Key obligatorio | 201 Order | Futura, compra simulada sin pago |
 | GET /orders/{order_id} | Customer propietario/admin | 200 Order | Futura |
 | GET /me/tickets?limit=20&offset=0 | Customer, solo propios | 200 página | Futura |
@@ -26,7 +26,7 @@ Issue #3. Propuesta de integración para revisión cruzada; no declara endpoints
 | POST /admin/refunds/{refund_id}/approve | Administrador, antes del inicio (política propuesta) | 200 Refund approved | Futura, Etapa III |
 | POST /admin/refunds/{refund_id}/reject | Administrador, motivo obligatorio | 200 Refund rejected | Futura, Etapa III |
 
-Los tres PRs se mantienen independientes: #3 documenta la interfaz; #6 la implementa parcialmente; #4 propone el dominio. La tabla describe el destino esperado después de revisar/mergear, no el estado de main.
+Disponibilidad referida a esta rama: los eventos requieren migrar a 0002_events. Las rutas de órdenes, tickets y devoluciones no están implementadas; no usar los ejemplos futuros como prueba de venta.
 
 ## Identidad (contrato acordado con el diseño #6)
 
@@ -46,17 +46,70 @@ Enviar `Authorization: Bearer <access_token>` en operaciones protegidas. Guardar
 
 `PATCH /users/{user_id}`: `{"display_name":"Ana Pérez"}`. Solo ese campo; role en esta ruta: 422. `PATCH /admin/users/{user_id}/role`: `{"role":"event_owner"}`. No se permite modificar el rol propio (409). Los roles se consultan en cada request; una sesión existente no conserva privilegios revocados.
 
-## Eventos y catálogo (futuros)
+## Eventos y catálogo (#13)
 
-Paginación: limit 1–100, por defecto 20; offset >=0, por defecto 0; orden estable por start_at e id. Filtros avanzados fuera de alcance. Página vacía es 200, nunca 404:
+Paginación: limit 1–100, por defecto 20; offset >=0, por defecto 0; orden estable
+por start_at e id. Página vacía es 200, nunca 404:
 ```json
 {"items":[],"limit":20,"offset":0,"total":0}
 ```
-Event público propuesto:
+`total` cuenta todos los eventos del filtro antes de paginar. El catálogo público
+incluye solo published con inicio futuro; el detalle público conserva eventos
+published pasados. Draft o ID inexistente: 404. El listado `/owner/events` incluye
+borradores propios; administrator ve todos, customer recibe 403.
+
+Crear borrador (campos requeridos):
 ```json
-{"id":"00000000-0000-0000-0000-000000000010","name":"Noche de bandas","description":"Música local","venue":"Centro Cultural, La Plata","start_at":"2027-05-15T23:00:00Z","end_at":"2027-05-16T02:00:00Z","status":"published","zones":[{"id":"00000000-0000-0000-0000-000000000020","name":"General","mode":"general","unit_price":1200000,"currency":"ARS","available":100,"seats":[]}]}
+{"name":"Noche de bandas","description":"Música local","venue":"Centro Cultural, La Plata","start_at":"2040-05-15T23:00:00Z","end_at":"2040-05-16T02:00:00Z"}
 ```
-Crear borrador recibe name, description, venue, start_at y end_at; no owner_id ni status. Edición recibe subconjunto de esos campos. Zonas/inventario tendrán un change propio: no se infiere que event-management deba implementarlos. Publicar/despublicar recibe `{}`; publicar requiere datos completos, fechas válidas y zonas configuradas. Borrador no es visible en catálogo ni detalle público (404). Falta de configuración: 422; cambios en eventos con ventas: 409. Sin zona numerada: seats vacío; en numbered: seats contiene `{id,label,available}`. Disponibilidad es informativa hasta confirmar transacción.
+Respuesta 201 (UUID y timestamps ilustrativos):
+```json
+{"id":"00000000-0000-0000-0000-000000000010","owner_id":"00000000-0000-0000-0000-000000000001","name":"Noche de bandas","description":"Música local","venue":"Centro Cultural, La Plata","start_at":"2040-05-15T23:00:00Z","end_at":"2040-05-16T02:00:00Z","status":"draft","created_at":"2026-11-23T21:00:00Z","updated_at":"2026-11-23T21:00:00Z"}
+```
+Nombre: 1–200; lugar: 1–300; descripción: hasta 5000 caracteres; se recortan
+espacios externos. Descripción vacía permitida en draft. Fechas con zona horaria,
+normalizadas UTC, inicio futuro y fin posterior. Bytes NUL en texto y fechas que
+desbordan al convertir a UTC se rechazan con 422. El servidor asigna owner_id;
+rechaza owner_id/status, campos extra y null con 422. Administrator puede crear
+borradores propios y gestionar los ajenos sin transferir su propiedad.
+
+PATCH acepta un subconjunto no vacío de los cinco campos de creación; valida
+el resultado completo antes de mutar. Solo draft, con inicio futuro. Editar
+published recibe 409: despublicar primero. Un owner ajeno recibe 403 sin mutación.
+Autenticación Bearer y guards reales de identidad; sesión revocada/rol degradado
+no conservan permisos. UUID inválido: 422.
+
+Publicar/despublicar requiere body `{}` y devuelve 200 Event. Repetir el mismo
+estado devuelve 200 sin cambiar timestamps. Publicar exige descripción no vacía y
+fechas válidas/futuras; 422 conserva draft.
+
+**Decisión del incremento #13:** se permite publicar sin zonas. El requisito
+anterior de zonas configuradas bloquearía este issue, que excluye inventario.
+Publicación significa visibilidad de metadatos, no habilitación de compra. No se
+serializan zones/stock/precios ficticios. Cuando se implemente compra deberá
+validarse inventario y bloquear edición/despublicación con ventas; ese guard no
+existe todavía porque no hay órdenes ni ventas. El alcance confirmado por el
+usuario es únicamente #13; esta decisión se deja visible para revisión de Lucas.
+
+### Recorrido por API
+
+Con Docker levantado y `alembic upgrade head`, crear un administrador con el
+comando de [autenticación](AUTENTICACION.md), iniciar sesión y usar su Bearer.
+También se puede promover un usuario a event_owner mediante el endpoint admin.
+
+```bash
+# TOKEN contiene una sesión del owner o administrador, sin escribirla en documentación.
+curl -X POST http://localhost:8000/api/v1/events \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"name":"Noche de bandas","description":"Música local","venue":"Centro Cultural","start_at":"2040-05-15T23:00:00Z","end_at":"2040-05-16T02:00:00Z"}'
+# Usar el id devuelto como EVENT_ID.
+curl "http://localhost:8000/api/v1/owner/events?limit=20&offset=0" \
+  -H "Authorization: Bearer $TOKEN"
+curl -X POST "http://localhost:8000/api/v1/events/$EVENT_ID/publish" \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{}'
+curl 'http://localhost:8000/api/v1/events?limit=20&offset=0'
+curl "http://localhost:8000/api/v1/events/$EVENT_ID"
+```
 
 ## Órdenes, tickets y devoluciones (futuros)
 
