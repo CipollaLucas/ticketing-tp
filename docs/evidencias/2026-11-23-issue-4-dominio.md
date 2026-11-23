@@ -10,3 +10,6 @@ Rama: `docs/domain-and-service-boundaries`. Change: `domain-and-service-boundari
 - Enfoque comentado en https://github.com/CipollaLucas/ticketing-tp/issues/4#issuecomment-7112000393.
 - PR pendiente por decisión del usuario: conservar rama local hasta contar con acceso. Revisión cruzada, CI y archivo pendientes.
 - Título sugerido: `docs: definir dominio y límites de servicios (issue #4)`. Body: describe entidades, invariantes, ADR y matriz de aceptación; `Closes #4` al abrir PR.
+
+## Corrección del enunciado (2026-11-23)
+Usuario pidió requerir aprobación/rechazo administrativo. Se corrigieron modelo, ADR, diseño y escenarios. Devoluciones son Etapa III; no se implementó código ni se ejecutaron tests de devoluciones. Validación OpenSpec estricta repetida antes del commit.

@@ -10,3 +10,5 @@
 - [ ] Publicar rama y abrir PR vinculado al issue #4 cuando haya acceso.
 - [ ] Obtener revisión cruzada y verificar CI.
 - [ ] Archivar en PR posterior a aceptación; no archivar ahora.
+
+- [x] Corregir devolución conforme al enunciado: solicitud del cliente y decisión administrativa; sin liberación anticipada de inventario. Validar escenarios de propuesta, aprobación, rechazo y concurrencia.

@@ -28,14 +28,30 @@ Ticketing SHALL commit inventory allocation, order, tickets and the idempotency 
 - **WHEN** an order contains an unavailable item
 - **THEN** the entire transaction rolls back, including other items and tickets.
 
-### Requirement: Authorized and idempotent refunds
-A refund SHALL affect only an eligible ticket owned by the customer or managed by an administrator, and SHALL release inventory at most once.
+### Requirement: Administratively reviewed refunds
+In Stage III, a customer SHALL request a refund of their own eligible ticket as pending. Only administrators SHALL approve or reject it. Only approval SHALL invalidate the ticket and release inventory once, atomically recording the decision and reviewer.
 
-#### Scenario: Refund is repeated
-- **WHEN** the same eligible ticket is refunded twice
-- **THEN** only one refund exists and inventory is released exactly once.
+#### Scenario: Customer submits a request
+- **WHEN** a customer requests a refund for an eligible ticket they own
+- **THEN** a pending request is created without changing the ticket or inventory.
 
-#### Scenario: Customer refunds a foreign ticket
+#### Scenario: Administrator approves repeatedly
+- **WHEN** an administrator approves an eligible pending request and repeats the approval
+- **THEN** the decision is recorded and inventory is released exactly once.
+
+#### Scenario: Administrator rejects
+- **WHEN** an administrator rejects a pending request with a reason
+- **THEN** the rejection and reviewer are recorded without changing ticket or inventory.
+
+#### Scenario: Customer attempts to decide
+- **WHEN** a customer or event owner attempts to approve or reject a refund
+- **THEN** the API responds with 403 without mutations.
+
+#### Scenario: Concurrent opposite decisions
+- **WHEN** approval and rejection race for the same pending request
+- **THEN** one terminal decision wins and the conflicting decision receives 409.
+
+#### Scenario: Customer requests a foreign refund
 - **WHEN** a customer requests a refund of another customer's ticket
 - **THEN** the API responds with 403 without modifying the ticket or inventory.
 
