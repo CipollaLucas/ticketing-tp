@@ -66,7 +66,7 @@ export function formatEventDate(iso: string): string {
   if (Number.isNaN(timestamp.getTime())) return 'Fecha por confirmar';
   return new Intl.DateTimeFormat('es-AR', {
     day: 'numeric', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
     timeZone: 'America/Argentina/Buenos_Aires',
   }).format(timestamp);
 }
