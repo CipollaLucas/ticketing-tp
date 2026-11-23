@@ -1,9 +1,11 @@
-# Tasks
+# Tasks — issue #3
 
-- [ ] Produce mockups of catalog, detail, login, checkout and my tickets.
-- [ ] Produce role-aware views for owners and administrators.
-- [ ] Review contract proposals with backend and domain leads.
-- [ ] Design responsive layout, loading/empty/error states.
-- [ ] Implement only approved bootstrap-level components.
-- [ ] Add Vitest/UI tests and document test evidence.
-- [ ] Link design artifacts in docs and PR; validate/archive change.
+- [x] Producir mockups navegables de catálogo, detalle, acceso, compra y mis tickets.
+- [x] Producir vistas diferenciadas de cliente, organizador y administrador.
+- [x] Documentar rutas, payloads, roles, errores y disponibilidad, alineados con el diseño #6 y el modelo propuesto #4.
+- [x] Diseñar responsive, labels/foco y estados cargando/vacío/error.
+- [x] Mantener el prototipo fuera de React y sin lógica de negocio ni autenticación real.
+- [x] Validar OpenSpec, sintaxis y recorrido del prototipo; registrar evidencia.
+- [ ] Revisar con el equipo los contratos propuestos antes de integrarlos.
+- [ ] Publicar rama y abrir PR con revisión cruzada cuando haya acceso.
+- [ ] Verificar CI del PR y archivar en un PR posterior a aceptación.
