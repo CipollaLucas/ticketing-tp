@@ -134,9 +134,9 @@ export default function App() {
           <button className={page === 'catalog' ? 'nav-active' : ''} onClick={() => navigate('catalog')}>Explorar</button>
           {isDemo && <button className={page === 'access' ? 'nav-active' : ''} onClick={() => navigate('access')}>Acceso demo</button>}
           <button className={page === 'workspace' ? 'nav-active' : ''} onClick={() => { setSourceMode('live'); navigate('workspace'); }}>Operar ticketera</button>
-          {role === 'customer' && <button onClick={() => navigate('tickets')}>Mis tickets</button>}
-          {role === 'event_owner' && <button onClick={() => navigate('owner')}>Mis eventos</button>}
-          {role === 'administrator' && <button onClick={() => navigate('admin')}>Administración</button>}
+          {isDemo && role === 'customer' && <button onClick={() => navigate('tickets')}>Mis tickets</button>}
+          {isDemo && role === 'event_owner' && <button onClick={() => navigate('owner')}>Mis eventos</button>}
+          {isDemo && role === 'administrator' && <button onClick={() => navigate('admin')}>Administración</button>}
         </nav>
         <label className="role-selector">Catálogo
           <select aria-label="Fuente de eventos" value={sourceMode} onChange={event => switchMode(event.target.value as SourceMode)}><option value="live">Eventos reales</option><option value="demo">Demostración</option></select>
