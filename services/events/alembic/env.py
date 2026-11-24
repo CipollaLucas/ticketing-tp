@@ -1,7 +1,7 @@
 """Standalone Events-owned schema migrations."""
-from alembic import context
 from sqlalchemy import create_engine, pool
 
+from alembic import context
 from events_service.persistence import Base
 from events_service.settings import settings
 
