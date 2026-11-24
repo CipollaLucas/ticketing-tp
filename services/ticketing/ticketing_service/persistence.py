@@ -1,10 +1,11 @@
 """Ticketing-owned DB. No Events or Identity tables, imports or foreign keys."""
+from typing import Literal, cast
 from uuid import UUID
 
 from sqlalchemy import CheckConstraint, ForeignKey, Integer, String, Uuid, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
-from ticketing_service.domain import GateCommand, GateState
+from ticketing_service.domain import GateCommand, GateState, SaleState
 from ticketing_service.settings import settings
 
 
@@ -51,10 +52,10 @@ class SqlAlchemyGateUnitOfWork:
         if row is None:
             return None
         old = GateCommand(
-            row.command_id, row.event_id, row.action, row.expected_version,
+            row.command_id, row.event_id, cast(Literal["open", "close"], row.action), row.expected_version,
             row.event_revision,
         )
-        result = GateState(row.event_id, row.result_state, row.result_version,
+        result = GateState(row.event_id, cast(SaleState, row.result_state), row.result_version,
                            row.result_revision)
         return old, result
 
@@ -65,7 +66,7 @@ class SqlAlchemyGateUnitOfWork:
         )
         if row is None:
             return None
-        return GateState(row.event_id, row.state, row.version, row.event_revision)
+        return GateState(row.event_id, cast(SaleState, row.state), row.version, row.event_revision)
 
     def save(self, command: GateCommand, state: GateState) -> None:
         row = self.db.get(SaleGateRow, state.event_id)
