@@ -1,21 +1,25 @@
 """Atomic simulated purchases; PostgreSQL is the concurrency authority."""
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Annotated, Self
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.auth import CurrentUser, Db, StrictRequest, require_owner_or_admin
 from app.events import Limit, Offset, utc
-from app.models import Event, Order, OrderItem, Role, Seat, Ticket, User, Zone
+from app.models import Order, OrderItem, Role, Ticket, User
+from app.ticketing_core.adapters.outbound.sqlalchemy_purchase import (
+    SqlAlchemyPurchaseUnitOfWork,
+)
+from app.ticketing_core.application.ports import PurchaseError
+from app.ticketing_core.application.purchase_tickets import purchase_tickets
 from app.ticketing_core.domain.purchase import (
     PurchaseIntent,
     PurchaseKeyConflict,
     TicketSelection,
-    assert_replay_compatible,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["Purchasing"])
@@ -111,89 +115,30 @@ def order_response(order: Order, db: Db) -> OrderResponse:
     )
 
 
-def allocate(payload: Purchase, user: User, key: str, db: Db) -> Order:
-    event = db.scalar(select(Event).where(Event.id == payload.event_id).with_for_update()
-                      .execution_options(populate_existing=True))
-    if event is None:
-        raise HTTPException(404, "Event not found")
-    if event.status != "published" or utc(event.start_at) <= datetime.now(UTC):
-        raise HTTPException(409, "Event is not on sale")
-    allocations: list[tuple[Zone, PurchaseItem]] = []
-    for item in sorted(payload.items, key=lambda i: i.zone_id):
-        zone = db.scalar(select(Zone).where(Zone.id == item.zone_id,
-                                            Zone.event_id == event.id).with_for_update()
-                         .execution_options(populate_existing=True))
-        if zone is None:
-            raise HTTPException(404, "Zone not found in event")
-        if zone.mode == "general":
-            if item.seat_ids:
-                raise HTTPException(422, "General zone does not accept seats")
-            allocated = db.scalar(update(Zone).where(Zone.id == zone.id,
-                              Zone.available >= item.quantity)
-                              .values(available=Zone.available - item.quantity).returning(Zone.id))
-            if allocated is None:
-                raise HTTPException(409, "Insufficient capacity")
-        else:
-            if len(item.seat_ids) != item.quantity:
-                raise HTTPException(422, "Quantity must equal selected seats")
-            seats = db.scalars(select(Seat.id).where(Seat.zone_id == zone.id,
-                                                     Seat.id.in_(item.seat_ids))).all()
-            if len(seats) != item.quantity:
-                raise HTTPException(422, "Seat does not belong to zone")
-            if db.scalar(select(Ticket.id).where(Ticket.seat_id.in_(item.seat_ids)).limit(1)):
-                raise HTTPException(409, "Seat already sold")
-        allocations.append((zone, item))
-    if len({zone.currency for zone, _ in allocations}) != 1:
-        raise HTTPException(422, "Order requires a single currency")
-    order = Order(customer_id=user.id, event_id=event.id, idempotency_key=key,
-                  request_hash=payload.digest(), currency=allocations[0][0].currency,
-                  total_minor=sum(z.price_minor * i.quantity for z, i in allocations))
-    db.add(order)
-    db.flush()
-    for zone, item in allocations:
-        line = OrderItem(order_id=order.id, zone_id=zone.id, quantity=item.quantity,
-                         unit_price_minor=zone.price_minor,
-                         subtotal_minor=zone.price_minor * item.quantity)
-        db.add(line)
-        db.flush()
-        ids: list[UUID | None] = list(item.seat_ids) if item.seat_ids else [None]*item.quantity
-        db.add_all([Ticket(order_item_id=line.id, zone_id=zone.id, seat_id=s) for s in ids])
-    return order
-
 
 @router.post("/orders", response_model=OrderResponse, status_code=201)
 def purchase(payload: Purchase, user: Customer, key: Key, db: Db,
              response: Response) -> OrderResponse:
+    intent = PurchaseIntent(
+        event_id=payload.event_id,
+        items=tuple(
+            TicketSelection(item.zone_id, item.quantity, tuple(item.seat_ids))
+            for item in payload.items
+        ),
+    )
+    unit_of_work = SqlAlchemyPurchaseUnitOfWork(db)
     try:
-        # Serializes idempotency across events and rechecks role after lock waits.
-        locked = db.scalar(select(User).where(User.id == user.id).with_for_update()
-                           .execution_options(populate_existing=True))
-        assert locked is not None
-        require_customer(locked)
-        existing = db.scalar(select(Order).where(Order.customer_id == user.id,
-                                                 Order.idempotency_key == key))
-        if existing is not None:
-            try:
-                assert_replay_compatible(existing.request_hash, payload.digest())
-            except PurchaseKeyConflict as error:
-                raise HTTPException(409, str(error)) from error
-            result = order_response(existing, db)
-            db.commit()
-            response.status_code = 200
-            response.headers["Idempotent-Replayed"] = "true"
-            return result
-        order = allocate(payload, user, key, db)
-        db.flush()
-        result = order_response(order, db)
-        db.commit()
-        response.headers["Idempotent-Replayed"] = "false"
-        return result
+        outcome = purchase_tickets(intent, user.id, key, unit_of_work)
+    except PurchaseKeyConflict as error:
+        raise HTTPException(409, str(error)) from error
+    except PurchaseError as error:
+        raise HTTPException(error.status, error.detail) from error
     except IntegrityError:
         db.rollback()
         raise HTTPException(409, "Purchase conflicts with inventory") from None
-    except Exception:
-        db.rollback()
-        raise
+    response.status_code = 200 if outcome.replayed else 201
+    response.headers["Idempotent-Replayed"] = "true" if outcome.replayed else "false"
+    return OrderResponse.model_validate(outcome.order, from_attributes=True)
 
 
 @router.get("/orders/{order_id}", response_model=OrderResponse)
