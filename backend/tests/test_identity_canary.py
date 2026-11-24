@@ -18,7 +18,6 @@ from app.ticketing_core.application.identity import (
     IdentityUnavailable,
 )
 
-
 ID = UUID("00000000-0000-0000-0000-000000000019")
 
 
