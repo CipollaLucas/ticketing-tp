@@ -5,13 +5,13 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, func, inspect, select
 from sqlalchemy.orm import Session
 
-from events_service.persistence import EventRow, SqlAlchemyEventReader
+from alembic import command
 from events_service.application import public_catalog
+from events_service.persistence import EventRow, SqlAlchemyEventReader
 
 
 @pytest.mark.skipif(not os.getenv("TEST_POSTGRES_URL"), reason="Dedicated PostgreSQL not configured")
