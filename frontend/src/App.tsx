@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { fetchEvent, fetchEvents, formatEventDate, type PublicEvent } from './eventApi';
+import CoreWorkspace from './CoreWorkspace';
 import './App.css';
 
-type Page = 'catalog' | 'detail' | 'access' | 'checkout' | 'tickets' | 'owner' | 'admin';
+type Page = 'catalog' | 'detail' | 'access' | 'checkout' | 'tickets' | 'owner' | 'admin' | 'workspace';
 type Role = 'visitor' | 'customer' | 'event_owner' | 'administrator';
 type CatalogState = 'ready' | 'loading' | 'empty' | 'error';
 type SourceMode = 'live' | 'demo';
@@ -16,7 +17,7 @@ const sampleEvents = [
 function initialPage(): Page {
   if (typeof window === 'undefined') return 'catalog';
   const value = window.location.hash.slice(1);
-  return (['catalog', 'detail', 'access', 'checkout', 'tickets', 'owner', 'admin'] as string[]).includes(value)
+  return (['catalog', 'detail', 'access', 'checkout', 'tickets', 'owner', 'admin', 'workspace'] as string[]).includes(value)
     ? value as Page : 'catalog';
 }
 
@@ -126,12 +127,13 @@ export default function App() {
   return (
     <div className="app">
       <a className="skip-link" href="#page-content">Ir al contenido</a>
-      <div className="preview-banner"><span className="preview-dot" /> {isDemo ? 'MODO DEMOSTRACIÓN · DATOS FICTICIOS · SIN COMPRAS NI SESIONES REALES' : 'CATÁLOGO REAL · EVENTOS PUBLICADOS · VENTA TODAVÍA NO HABILITADA'}</div>
+      <div className="preview-banner"><span className="preview-dot" /> {isDemo ? 'MODO DEMOSTRACIÓN · DATOS FICTICIOS · SIN COMPRAS NI SESIONES REALES' : 'ETAPA I · CATÁLOGO CONECTADO · COMPRA SIMULADA DISPONIBLE EN OPERAR TICKETERA'}</div>
       <header className="site-header">
         <button className="brand" type="button" onClick={() => navigate('catalog')}>ticketing<span className="brand-mark">.</span><span className="brand-suffix">/ tp</span></button>
         <nav aria-label="Navegación principal">
           <button className={page === 'catalog' ? 'nav-active' : ''} onClick={() => navigate('catalog')}>Explorar</button>
           <button className={page === 'access' ? 'nav-active' : ''} onClick={() => navigate('access')}>Acceder</button>
+          <button className={page === 'workspace' ? 'nav-active' : ''} onClick={() => { setSourceMode('live'); navigate('workspace'); }}>Operar ticketera</button>
           {role === 'customer' && <button onClick={() => navigate('tickets')}>Mis tickets</button>}
           {role === 'event_owner' && <button onClick={() => navigate('owner')}>Mis eventos</button>}
           {role === 'administrator' && <button onClick={() => navigate('admin')}>Administración</button>}
@@ -150,6 +152,7 @@ export default function App() {
       {notice && <div className="notice" role="status"><span>{notice}</span><button onClick={() => setNotice('')} aria-label="Cerrar aviso">×</button></div>}
 
       <main id="page-content" tabIndex={-1}>
+        {page === 'workspace' && <CoreWorkspace />}
         {page === 'catalog' && <>
           <section className="hero">
             <div className="hero-copy"><p className="eyebrow">LA AGENDA QUE NOS REÚNE <span className="eyebrow-line" /></p>
@@ -174,12 +177,12 @@ export default function App() {
               <span>Mostrando {offset + 1}–{Math.min(offset + liveEvents.length, totalEvents)} de {totalEvents}</span>
               <button className="btn btn-outline" disabled={offset + liveEvents.length >= totalEvents} onClick={() => { setLiveState('loading'); setOffset(offset + 20); }}>Siguientes →</button>
             </div>}
-            <p className="disclaimer">{isDemo ? 'Los eventos y precios son ficticios. Cambiá a Eventos reales para consultar el backend.' : 'Eventos publicados desde FastAPI. Las entradas aún no están disponibles para comprar.'}</p>
+            <p className="disclaimer">{isDemo ? 'Los eventos y precios son ficticios. Cambiá a Eventos reales para consultar el backend.' : 'Eventos publicados desde FastAPI. Para comprar entradas de prueba utilizá Operar ticketera.'}</p>
           </section>
         </>}
 
         {page === 'detail' && (!isDemo && detailState !== 'ready' ? <section className="inner-page"><button className="back-link" onClick={() => navigate('catalog')}>← Volver al catálogo</button><div className="empty-state" role="status">{detailState === 'loading' ? 'Cargando evento…' : 'No se pudo mostrar este evento. Puede no existir o ya no estar publicado.'}</div></section> : currentEvent && <section className="inner-page"><button className="back-link" onClick={() => navigate('catalog')}>← Volver al catálogo</button><p className="eyebrow">{currentEvent.type} · {isDemo ? 'EVENTO DE DEMOSTRACIÓN' : 'EVENTO PUBLICADO'}</p><h1 className="inner-title">{currentEvent.title}<span className="title-dot">.</span></h1>
-          <div className="detail-grid"><div><div className={`detail-poster ${currentEvent.poster}`}><span>EXPERIENCIA / 2027</span><strong>{currentEvent.word}</strong></div><h2>Nos encontramos ahí.</h2><p className="long-copy">{currentEvent.description} {isDemo ? 'Este evento es ficticio y sirve para validar la experiencia visual.' : 'Información del evento publicada por su organizador.'}</p><dl className="info-list"><dt>Cuándo</dt><dd>{currentEvent.date}</dd><dt>Dónde</dt><dd>{currentEvent.venue}</dd></dl></div><aside className="side-panel"><span className="eyebrow">ENTRADAS</span><h3>{isDemo ? 'Elegí tu experiencia' : 'Próximamente'}</h3>{isDemo && <p>Zona general · sin numeración</p>}<p className="price">{currentEvent.price}</p>{isDemo ? <><span className="soft-pill">Disponibilidad de muestra</span><button className="btn btn-dark btn-block" onClick={() => navigate('checkout')}>Ver compra simulada ↗</button><p className="fine-print">El precio y el cupo reales deben confirmarse en el servidor. No se venden entradas en esta demo.</p></> : <p className="fine-print">Este evento está publicado, pero todavía no se configuraron inventario ni compras. No es posible reservar o adquirir entradas.</p>}</aside></div>
+          <div className="detail-grid"><div><div className={`detail-poster ${currentEvent.poster}`}><span>EXPERIENCIA / 2027</span><strong>{currentEvent.word}</strong></div><h2>Nos encontramos ahí.</h2><p className="long-copy">{currentEvent.description} {isDemo ? 'Este evento es ficticio y sirve para validar la experiencia visual.' : 'Información del evento publicada por su organizador.'}</p><dl className="info-list"><dt>Cuándo</dt><dd>{currentEvent.date}</dd><dt>Dónde</dt><dd>{currentEvent.venue}</dd></dl></div><aside className="side-panel"><span className="eyebrow">ENTRADAS</span><h3>{isDemo ? 'Elegí tu experiencia' : 'Próximamente'}</h3>{isDemo && <p>Zona general · sin numeración</p>}<p className="price">{currentEvent.price}</p>{isDemo ? <><span className="soft-pill">Disponibilidad de muestra</span><button className="btn btn-dark btn-block" onClick={() => navigate('checkout')}>Ver compra simulada ↗</button><p className="fine-print">El precio y el cupo reales deben confirmarse en el servidor. No se venden entradas en esta demo.</p></> : <p className="fine-print">Para consultar zonas disponibles y comprar entradas de prueba, ingresá en Operar ticketera. No se procesan pagos.</p>}</aside></div>
         </section>)}
 
         {page === 'access' && <section className="inner-page"><p className="eyebrow">IDENTIDAD / DEMOSTRACIÓN</p><h1 className="inner-title">Tu lugar<br /><em>empieza acá.</em></h1><p className="page-intro">Vista visual de ingreso y registro. No introduzcas datos reales.</p><div className="two-panels">
