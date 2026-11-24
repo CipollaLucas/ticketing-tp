@@ -208,3 +208,37 @@ jobs:
           PY
       - run: docker build -t ticketing-events-ci .
         working-directory: services/events
+
+  h3-identity-events-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate disposable contract-only credentials
+        run: |
+          token=$(openssl rand -hex 32)
+          password=$(openssl rand -hex 24)
+          echo "::add-mask::$token"
+          echo "::add-mask::$password"
+          echo "H3_INTERNAL_TOKEN=$token" >> "$GITHUB_ENV"
+          echo "H3_TEST_PASSWORD=$password" >> "$GITHUB_ENV"
+      - name: Build isolated Identity and Events images
+        run: docker compose -p h3-contract-ci -f docker-compose.h3-contract.yml build h3-identity h3-events h3-smoke
+      - name: Start two isolated PostgreSQL databases
+        run: docker compose -p h3-contract-ci -f docker-compose.h3-contract.yml up -d --wait h3-identity-db h3-events-db
+      - name: Apply independent owned schemas
+        run: |
+          docker compose -p h3-contract-ci -f docker-compose.h3-contract.yml run --rm --no-deps h3-identity alembic upgrade head
+          docker compose -p h3-contract-ci -f docker-compose.h3-contract.yml run --rm --no-deps h3-events alembic upgrade head
+      - name: Seed only disposable Identity database
+        run: docker compose -p h3-contract-ci -f docker-compose.h3-contract.yml run --rm --no-deps h3-identity python -m identity.h3_contract_seed
+      - name: Start both independent HTTP services
+        run: docker compose -p h3-contract-ci -f docker-compose.h3-contract.yml up -d --wait h3-identity h3-events
+      - name: Verify real HTTP auth, ownership, roles and session revocation
+        run: docker compose -p h3-contract-ci -f docker-compose.h3-contract.yml run --rm h3-smoke --phase online
+      - name: Stop Identity while leaving Events running
+        run: docker compose -p h3-contract-ci -f docker-compose.h3-contract.yml stop h3-identity
+      - name: Verify Events fails closed during Identity outage
+        run: docker compose -p h3-contract-ci -f docker-compose.h3-contract.yml run --rm --no-deps h3-smoke --phase outage
+      - name: Tear down disposable containers and network
+        if: always()
+        run: docker compose -p h3-contract-ci -f docker-compose.h3-contract.yml down --remove-orphans
