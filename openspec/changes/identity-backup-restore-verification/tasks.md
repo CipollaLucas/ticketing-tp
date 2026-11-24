@@ -1,0 +1,7 @@
+- [x] Build two independent pg_dump operations using binary-safe output.
+- [x] Restore archives in disposable offline PostgreSQL 16 containers.
+- [x] Verify critical table counts, archive SHA-256 and local manifest.
+- [x] Ensure no destructive operations on source DBs and Git-ignore backup files.
+- [ ] Run CI smoke on temporary databases and validate OpenSpec.
+- [ ] Run actual local backup/restore verification and retain evidence.
+- [ ] Only after independent manual approval, revisit Identity backfill; no apply in this change.
