@@ -243,3 +243,56 @@ jobs:
       - name: Tear down disposable containers and network
         if: always()
         run: docker compose -p h3-contract-ci -f docker-compose.h3-contract.yml down --remove-orphans
+
+  ticketing:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: ticketing-ci-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://postgres:ticketing-ci-only@localhost:5432/postgres
+      TEST_POSTGRES_URL: postgresql+psycopg://postgres:ticketing-ci-only@localhost:5432/postgres
+    defaults:
+      run:
+        working-directory: services/ticketing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e '.[dev]'
+      - run: ruff check .
+      - run: mypy ticketing_service
+      - run: pytest -q -rs
+      - run: alembic upgrade head
+      - run: alembic current
+      - name: Verify standalone Ticketing health
+        run: |
+          uvicorn ticketing_service.main:app --host 127.0.0.1 --port 8003 > /tmp/ticketing.log 2>&1 &
+          python - <<'PY'
+          import json, time, urllib.request
+          for _ in range(30):
+              try:
+                  with urllib.request.urlopen('http://127.0.0.1:8003/health') as r:
+                      assert json.load(r)['database'] == 'ok'
+                  with urllib.request.urlopen('http://127.0.0.1:8003/api/v1/internal/sales/availability') as r:
+                      data=json.load(r)
+                      assert data['sale_commands_enabled'] is False
+                      assert data['purchases_enabled'] is False
+                  break
+              except Exception:
+                  time.sleep(1)
+          else:
+              raise SystemExit('Ticketing H4 health did not become ready')
+          PY
+      - run: docker build -t ticketing-h4-foundation-ci .
+        working-directory: services/ticketing
