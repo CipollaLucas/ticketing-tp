@@ -24,6 +24,7 @@ jobs:
       - run: npx --yes @fission-ai/openspec@2.1.1 validate identity-backup-restore-verification --strict
       - run: npx --yes @fission-ai/openspec@2.1.1 validate identity-readonly-auth-canary --strict
       - run: npx --yes @fission-ai/openspec@2.1.1 validate identity-cross-context-foreign-keys --strict
+      - run: npx --yes @fission-ai/openspec@2.1.1 validate events-independent-foundation --strict
   backend:
     runs-on: ubuntu-latest
     services:
