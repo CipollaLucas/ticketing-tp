@@ -58,7 +58,7 @@ def test_malformed_payload_is_not_trusted():
         {"id": USER, "username": "x", "role": "customer"},
         {"id": "not-uuid", "username": "x", "display_name": "x", "role": "customer"},
     ):
-        client = adapter(lambda _: httpx.Response(200, json=body))
+        client = adapter(lambda _, value=body: httpx.Response(200, json=value))
         with pytest.raises(IdentityUnavailable):
             authenticate_remote("token", client)
 
