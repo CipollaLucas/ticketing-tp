@@ -27,10 +27,11 @@ Abrir http://localhost:5173 y elegir **Operar ticketera**.
 - UAT compra y agotamiento de cupo (409); replay con `idempotent-replayed: true` confirmado por captura.
 - Controles Ruff/mypy y CI verdes en PRs de core.
 
-## Pendiente antes de entrega
-- Confirmar CI final del change stage-i-functional-web.
-- Recorrer UI completa tras merge y guardar capturas de las pantallas clave.
-- Archivar cambios OpenSpec aceptados y revisar consistencia de `project-bootstrap`.
+## Aceptación y archivo
+- CI de PR #28 aprobado 4/4 y recorrido funcional desde React comunicado como completo (9/9 pruebas, 24/11/2026).
+- Evidencias de roles, zona, compra, sobreventa y tickets observadas en las capturas del equipo.
+- Mantener como tarea administrativa posterior el archivo de los changes OpenSpec mediante CLI y la revisión de `project-bootstrap`.
+- No se requiere añadir recomendaciones/caché ni pagos reales para esta entrega.
 
 ## Exclusiones explícitas
 Sin pago externo, reembolsos, recomendación personalizada, cache distribuida, colas masivas ni stress test de Etapa III.

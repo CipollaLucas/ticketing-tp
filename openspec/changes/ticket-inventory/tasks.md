@@ -9,4 +9,5 @@ Foco: enteros estrictos, monedas, modalidad/FK, atomicidad, autorización tras l
 - [x] 4. Ejecutar tests SQLite; probar constraints, migración reversible y creación concurrente PostgreSQL.
 - [x] 5. Actualizar ADR-0004, API, dominio, bitácora y evidencia con resultados reales.
 - [x] 6. Ejecutar Ruff/mypy/pytest y OpenSpec estricto; revisar diff y abrir PR para Lucas.
-- [ ] 7. Obtener aprobación, verificar CI y recién evaluar archivo (fuera de esta ejecución).
+- [x] 7. Aprobación y merge de PR #23, CI verde y UAT de inventario (24/11/2026).
+- [ ] 8. Archivo del change con CLI OpenSpec tras verificación de specs.
