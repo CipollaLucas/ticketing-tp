@@ -13,9 +13,15 @@ if context.is_offline_mode():
     with context.begin_transaction():
         context.run_migrations()
 elif config.attributes.get("connection") is not None:
-    context.configure(connection=config.attributes["connection"], target_metadata=Base.metadata)
+    connection = config.attributes["connection"]
+    context.configure(connection=connection, target_metadata=Base.metadata)
     with context.begin_transaction():
         context.run_migrations()
+    if connection.dialect.name == "sqlite":
+        # SQLite DDL is non-transactional. A batch-table rebuild may commit
+        # internally to toggle FK enforcement; persist Alembic's version row
+        # after the migration callback returns, not inside the revision.
+        connection.commit()
 else:
     engine = create_engine(url, poolclass=pool.NullPool)
     try:
@@ -23,5 +29,7 @@ else:
             context.configure(connection=connection, target_metadata=Base.metadata)
             with context.begin_transaction():
                 context.run_migrations()
+            if connection.dialect.name == "sqlite":
+                connection.commit()
     finally:
         engine.dispose()
