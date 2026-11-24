@@ -17,6 +17,7 @@ jobs:
       - run: npx --yes @fission-ai/openspec@2.1.1 validate microservices-hexagonal-migration --strict
       - run: npx --yes @fission-ai/openspec@2.1.1 validate ticketing-hexagonal-uow --strict
       - run: npx --yes @fission-ai/openspec@2.1.1 validate ticketing-hexagonal-inventory-queries --strict
+      - run: npx --yes @fission-ai/openspec@2.1.1 validate identity-independent-foundation --strict
   backend:
     runs-on: ubuntu-latest
     services:
@@ -66,3 +67,37 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker compose config
       - run: docker compose build
+
+  identity:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: ci-identity-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://postgres:ci-identity-only@localhost:5432/postgres
+      IDENTITY_INTERNAL_TOKEN: ci-only-identity-internal-token-for-tests-2026
+    defaults:
+      run:
+        working-directory: services/identity
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e '.[dev]'
+      - run: ruff check .
+      - run: mypy identity
+      - run: alembic upgrade head
+      - run: alembic current
+      - run: pytest -q
+      - run: docker build -t identity-service-ci .
+        working-directory: services/identity
