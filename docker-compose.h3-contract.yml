@@ -1,0 +1,76 @@
+# H3 live contract isolated from Legacy and all existing developer projects.
+# Run with -p ticketing-h3-contract (or a distinct project name).
+# No host ports and no persistent volumes. This is NOT the regular deployment.
+services:
+  h3-identity-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: h3_identity
+      POSTGRES_PASSWORD: h3-local-test-only
+      POSTGRES_DB: h3_identity_test
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U h3_identity -d h3_identity_test"]
+      interval: 2s
+      timeout: 2s
+      retries: 25
+
+  h3-events-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: h3_events
+      POSTGRES_PASSWORD: h3-local-test-only
+      POSTGRES_DB: h3_events_test
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U h3_events -d h3_events_test"]
+      interval: 2s
+      timeout: 2s
+      retries: 25
+
+  h3-identity:
+    build: ./services/identity
+    environment:
+      DATABASE_URL: postgresql+psycopg://h3_identity:h3-local-test-only@h3-identity-db:5432/h3_identity_test
+      IDENTITY_INTERNAL_TOKEN: ${H3_INTERNAL_TOKEN:?Set a random 32+ character H3_INTERNAL_TOKEN}
+      H3_CONTRACT_SEED: "yes"
+      H3_TEST_PASSWORD: ${H3_TEST_PASSWORD:?Set a random H3_TEST_PASSWORD}
+    depends_on:
+      h3-identity-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health')"]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+
+  h3-events:
+    build: ./services/events
+    environment:
+      DATABASE_URL: postgresql+psycopg://h3_events:h3-local-test-only@h3-events-db:5432/h3_events_test
+      PROTECTED_DRAFTS_ENABLED: "true"
+      IDENTITY_SERVICE_URL: http://h3-identity:8001
+      IDENTITY_INTERNAL_TOKEN: ${H3_INTERNAL_TOKEN:?Set a random 32+ character H3_INTERNAL_TOKEN}
+      IDENTITY_TIMEOUT_SECONDS: "1"
+    depends_on:
+      h3-events-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health')"]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+
+  h3-smoke:
+    build: ./services/events
+    environment:
+      DATABASE_URL: postgresql+psycopg://h3_events:h3-local-test-only@h3-events-db:5432/h3_events_test
+      H3_IDENTITY_URL: http://h3-identity:8001
+      H3_EVENTS_URL: http://h3-events:8002
+      H3_TEST_PASSWORD: ${H3_TEST_PASSWORD:?Set a random H3_TEST_PASSWORD}
+    depends_on:
+      h3-events:
+        condition: service_healthy
+    entrypoint: ["python", "h3_contract_smoke.py"]
