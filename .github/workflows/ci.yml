@@ -48,6 +48,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -e '.[dev]'
+      - run: ruff check --diff . || true
       - run: ruff check .
       - run: mypy app
       - run: pytest -q
