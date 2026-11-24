@@ -1,0 +1,12 @@
+# Explicit opt-in overlay. Use together with identity and events overlays.
+# Do not start Events write API unless both Identity and its own DB are healthy.
+services:
+  events:
+    environment:
+      PROTECTED_DRAFTS_ENABLED: "true"
+      IDENTITY_SERVICE_URL: http://identity:8001
+      IDENTITY_INTERNAL_TOKEN: ${IDENTITY_INTERNAL_TOKEN:?Set a random 32+ char internal credential}
+      IDENTITY_TIMEOUT_SECONDS: "2"
+    depends_on:
+      identity:
+        condition: service_healthy

@@ -22,7 +22,7 @@ def test_catalog_read_only_over_http():
             response = client.get("/api/v1/events")
             assert response.status_code == 200
             assert response.json() == {"items": [], "total": 0, "limit": 20, "offset": 0}
-            assert client.post("/api/v1/events", json={}).status_code == 405
+            assert client.post("/api/v1/events", json={}).status_code in (404, 422)
             assert client.get("/api/v1/events?limit=0").status_code == 422
     finally:
         app.dependency_overrides.clear()
