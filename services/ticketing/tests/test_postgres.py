@@ -36,10 +36,9 @@ def test_schema_command_replay_and_stale_version():
         assert change_sale_gate(first, SqlAlchemyGateUnitOfWork(db)).version == 1
     with Session(engine) as db:
         assert change_sale_gate(first, SqlAlchemyGateUnitOfWork(db)).version == 1
-    with Session(engine) as db:
-        with pytest.raises(GateConflict):
-            change_sale_gate(GateCommand(uuid4(), event, "close", 0, 1),
-                             SqlAlchemyGateUnitOfWork(db))
+    with Session(engine) as db, pytest.raises(GateConflict):
+        change_sale_gate(GateCommand(uuid4(), event, "close", 0, 1),
+                         SqlAlchemyGateUnitOfWork(db))
     with Session(engine) as db:
         assert db.get(SaleGateRow, event).state == "open"
         assert len(db.scalars(select(GateCommandRow).where(
