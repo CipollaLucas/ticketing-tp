@@ -1,0 +1,7 @@
+- [x] Define real Unit of Work Protocol and persistence-agnostic receipt.
+- [x] Implement use case with lock, replay, allocation, commit and rollback.
+- [x] Move transaction/locks/SQL into outbound SQLAlchemy adapter.
+- [x] Reduce FastAPI purchase router to HTTP translation and adapter wiring.
+- [x] Add fake-port unit tests for first purchase, replay, conflict and rollback.
+- [ ] Validate OpenSpec strict and CI 4/4 including PostgreSQL concurrency tests.
+- [ ] Merge after review and run local full PostgreSQL suite.
