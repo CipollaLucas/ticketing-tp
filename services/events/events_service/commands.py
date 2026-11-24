@@ -1,5 +1,5 @@
 """Protected preview HTTP adapter; no direct user IDs accepted from clients."""
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -32,6 +32,8 @@ class CreateEventRequest(BaseModel):
 
 
 def identity_port() -> IdentityPort:
+    if not settings.protected_drafts_enabled:
+        raise HTTPException(404, "Not found", headers=NO_STORE)
     if not settings.identity_service_url or not settings.identity_internal_token:
         raise HTTPException(503, "Identity integration unavailable", headers=NO_STORE)
     try:
@@ -83,7 +85,7 @@ def create_event(
     try:
         event = create_draft(
             DraftInput(**payload.model_dump()), principal.id,
-            SqlAlchemyDraftWriter(db), datetime.now().astimezone(),
+            SqlAlchemyDraftWriter(db), datetime.now(UTC),
         )
     except ValueError as error:
         raise HTTPException(422, str(error), headers=NO_STORE) from error
