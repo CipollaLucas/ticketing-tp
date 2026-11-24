@@ -129,6 +129,25 @@ def restore_isolated(kind, archive, expected_counts):
             "-e", f"POSTGRES_PASSWORD={password}", IMAGE,
         ])
         started = True
+        # The official PostgreSQL image starts a *temporary* postmaster
+        # during initdb. pg_isready can succeed briefly, then that server
+        # shuts down before the final postmaster starts. Waiting only for
+        # pg_isready causes intermittent docker exec / pg_restore failures.
+        initialized = False
+        for _ in range(100):
+            logs = subprocess.run(
+                ["docker", "logs", name],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+            )
+            if logs.returncode == 0 and (
+                b"PostgreSQL init process complete; ready for start up."
+                in logs.stdout + logs.stderr
+            ):
+                initialized = True
+                break
+            time.sleep(0.3)
+        if not initialized:
+            raise BackupError("Temporary PostgreSQL initialization did not finish")
         for _ in range(50):
             ready = subprocess.run(
                 ["docker", "exec", name, "pg_isready", "-U", "verify", "-d", "verify"],
@@ -136,9 +155,9 @@ def restore_isolated(kind, archive, expected_counts):
             )
             if ready.returncode == 0:
                 break
-            time.sleep(0.4)
+            time.sleep(0.3)
         else:
-            raise BackupError("Isolated PostgreSQL did not become ready")
+            raise BackupError("Final PostgreSQL server did not become ready")
         print(f"VERIFY {kind}: restoring archive into temporary offline PostgreSQL", flush=True)
         cmd(["docker", "cp", str(archive), f"{name}:/tmp/verify.dump"],
             operation=f"copy {kind} archive to temporary PostgreSQL")
