@@ -1,0 +1,56 @@
+"""Events-owned SQLAlchemy adapter. UUID owner_id has no external FK."""
+from datetime import datetime
+from uuid import UUID
+
+from sqlalchemy import CheckConstraint, DateTime, String, Uuid, create_engine, func, select
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
+
+from events_service.domain import EventRecord
+from events_service.settings import settings
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class EventRow(Base):
+    __tablename__ = "events"
+    __table_args__ = (
+        CheckConstraint("status IN ('draft', 'published')", name="valid_event_status"),
+        CheckConstraint("end_at > start_at", name="valid_event_dates"),
+    )
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
+    owner_id: Mapped[UUID] = mapped_column(Uuid, index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str] = mapped_column(String(5000))
+    venue: Mapped[str] = mapped_column(String(300))
+    start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    end_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(String(20), default="draft")
+
+
+engine = create_engine(settings.database_url, pool_pre_ping=True)
+
+
+class SqlAlchemyEventReader:
+    def __init__(self, session: Session):
+        self.session = session
+
+    def upcoming(self, now: datetime, limit: int, offset: int) -> tuple[list[EventRecord], int]:
+        conditions = (EventRow.status == "published", EventRow.start_at > now)
+        total = self.session.scalar(
+            select(func.count()).select_from(EventRow).where(*conditions)
+        ) or 0
+        rows = self.session.scalars(
+            select(EventRow).where(*conditions).order_by(EventRow.start_at, EventRow.id)
+            .offset(offset).limit(limit)
+        ).all()
+        records = [
+            EventRecord(
+                id=row.id, owner_id=row.owner_id, name=row.name,
+                description=row.description, venue=row.venue, start_at=row.start_at,
+                end_at=row.end_at, status=row.status,
+            )
+            for row in rows
+        ]
+        return records, total
