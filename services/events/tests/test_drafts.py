@@ -29,10 +29,11 @@ class FakeWriter:
 
 
 def draft(**kwargs):
-    data = dict(
-        name="  Festival  ", description="Live music", venue="  Hall  ",
-        start_at=NOW + timedelta(days=3), end_at=NOW + timedelta(days=3, hours=2),
-    )
+    data = {
+        "name": "  Festival  ", "description": "Live music", "venue": "  Hall  ",
+        "start_at": NOW + timedelta(days=3),
+        "end_at": NOW + timedelta(days=3, hours=2),
+    }
     return DraftInput(**(data | kwargs))
 
 
