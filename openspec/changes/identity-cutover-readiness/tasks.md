@@ -1,0 +1,7 @@
+- [x] Inspect legacy user foreign keys for Events and Orders and separate Identity persistence.
+- [x] Implement read-only comparison of user UUIDs and identity attributes.
+- [x] Audit referenced owner/customer UUIDs and legacy session count.
+- [x] Add tests for missing users, matching data, mismatched identities and orphan references.
+- [ ] Validate strict OpenSpec and full CI including Identity PostgreSQL.
+- [ ] Manually review local audit **before** any user backfill apply or legacy schema change.
+- [ ] Separate PR: tested backup/restore and controlled schema/auth cutover with fail-closed role policy.
