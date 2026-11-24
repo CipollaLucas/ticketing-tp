@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 from alembic.config import Config
-from sqlalchemy import create_engine, event, inspect
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import Session
 from test_postgres import postgres_engine as postgres_engine  # noqa: PLC0414
 
@@ -30,6 +30,8 @@ def test_external_user_references_migration_roundtrip(database, request, tmp_pat
     with engine.connect() as connection:
         config.attributes["connection"] = connection
         command.upgrade(config, "0004_purchasing")
+        connection.commit()
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0004_purchasing"
 
     with Session(engine) as db:
         user = User(
@@ -62,6 +64,8 @@ def test_external_user_references_migration_roundtrip(database, request, tmp_pat
     with engine.connect() as connection:
         config.attributes["connection"] = connection
         command.upgrade(config, "head")
+        connection.commit()
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0005_external_identity_refs"
         assert not any(
             fk["referred_table"] == "users"
             for table in ("events", "orders")
@@ -89,6 +93,8 @@ def test_external_user_references_migration_roundtrip(database, request, tmp_pat
     with engine.connect() as connection:
         config.attributes["connection"] = connection
         command.downgrade(config, "0004_purchasing")
+        connection.commit()
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0004_purchasing"
         assert any(
             fk["referred_table"] == "users"
             for table in ("events", "orders")
