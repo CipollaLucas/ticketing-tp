@@ -17,3 +17,4 @@ Registrar decisiones, enlace a PR, resultados de tests, fallos y correcciones po
 
 - 2026-11-23 — #21: change ticket-inventory, zonas/asientos, Alembic 0003 y ADR-0004; tests SQLite/PostgreSQL y evidencia dedicada. Pendiente revisión/CI del PR.
 | 2026-11-24 | Equipo | ticket-purchasing / PR #24 | Compra idempotente y tests concurrentes integrados mediante rama de conciliación sobre #23; evidencia en docs/evidencias/2026-11-23-issue-22-compra.md | Revisión aprobada; pendiente CI de integración |
+| 2026-11-24 | Equipo | frontend-live-catalog / PR #20 | Integración React contra API pública real y modo demo separado; recompuesta sobre main para preservar inventario/compra; evidencia en docs/evidencias/2026-11-23-issue-19-catalogo-api.md | CI pendiente de integración; UAT navegador pendiente |
