@@ -5,17 +5,23 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
-from app.auth import CurrentUser, Db, StrictRequest, require_owner_or_admin
-from app.events import Limit, Offset, utc
-from app.models import Order, OrderItem, Role, Ticket, User
+from app.auth import CurrentUser, Db, StrictRequest
+from app.events import Limit, Offset
+from app.models import Role, User
 from app.ticketing_core.adapters.outbound.sqlalchemy_purchase import (
     SqlAlchemyPurchaseUnitOfWork,
 )
+from app.ticketing_core.adapters.outbound.sqlalchemy_queries import SqlAlchemyTicketQueries
 from app.ticketing_core.application.ports import PurchaseError
 from app.ticketing_core.application.purchase_tickets import purchase_tickets
+from app.ticketing_core.application.queries import (
+    get_my_tickets as query_tickets,
+)
+from app.ticketing_core.application.queries import (
+    get_order as query_order,
+)
 from app.ticketing_core.domain.purchase import (
     PurchaseIntent,
     PurchaseKeyConflict,
@@ -102,19 +108,6 @@ class TicketPage(BaseModel):
     total: int
 
 
-def order_response(order: Order, db: Db) -> OrderResponse:
-    items = db.scalars(select(OrderItem).where(OrderItem.order_id == order.id)
-                       .order_by(OrderItem.zone_id)).all()
-    tickets = db.scalars(select(Ticket).join(OrderItem, Ticket.order_item_id == OrderItem.id)
-                         .where(OrderItem.order_id == order.id).order_by(Ticket.id)).all()
-    return OrderResponse(
-        id=order.id, customer_id=order.customer_id, event_id=order.event_id,
-        status=order.status, total_minor=order.total_minor, currency=order.currency,
-        created_at=utc(order.created_at), items=[ItemResponse.model_validate(i) for i in items],
-        tickets=[TicketResponse.model_validate(t) for t in tickets],
-    )
-
-
 
 @router.post("/orders", response_model=OrderResponse, status_code=201)
 def purchase(payload: Purchase, user: Customer, key: Key, db: Db,
@@ -143,18 +136,14 @@ def purchase(payload: Purchase, user: Customer, key: Key, db: Db,
 
 @router.get("/orders/{order_id}", response_model=OrderResponse)
 def get_order(order_id: UUID, user: CurrentUser, db: Db) -> OrderResponse:
-    order = db.get(Order, order_id)
-    if order is None:
-        raise HTTPException(404, "Order not found")
-    require_owner_or_admin(user, order.customer_id)
-    return order_response(order, db)
+    try:
+        result = query_order(order_id, user.id, SqlAlchemyTicketQueries(db))
+    except PurchaseError as error:
+        raise HTTPException(error.status, error.detail) from error
+    return OrderResponse.model_validate(result, from_attributes=True)
 
 
 @router.get("/me/tickets", response_model=TicketPage)
 def my_tickets(user: CurrentUser, db: Db, limit: Limit = 20, offset: Offset = 0) -> TicketPage:
-    query = select(Ticket).join(OrderItem, Ticket.order_item_id == OrderItem.id).join(Order).where(
-        Order.customer_id == user.id)
-    total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
-    tickets = db.scalars(query.order_by(Ticket.id).limit(limit).offset(offset)).all()
-    return TicketPage(items=[TicketResponse.model_validate(t) for t in tickets],
-                      total=total, limit=limit, offset=offset)
+    result = query_tickets(user.id, limit, offset, SqlAlchemyTicketQueries(db))
+    return TicketPage.model_validate(result, from_attributes=True)
