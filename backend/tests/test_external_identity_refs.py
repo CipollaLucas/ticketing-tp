@@ -5,13 +5,12 @@ from uuid import uuid4
 
 import pytest
 from alembic.config import Config
-from sqlalchemy import create_engine, event, inspect, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import create_engine, event, inspect
 from sqlalchemy.orm import Session
 from test_postgres import postgres_engine as postgres_engine  # noqa: PLC0414
 
 from alembic import command
-from app.models import AuthSession, Event, Order, User, Zone
+from app.models import Event, Order, User, Zone
 
 TEST_USER = "legacy_owner_for_migration"
 
