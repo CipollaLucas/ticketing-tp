@@ -46,7 +46,7 @@ def identity_adapter() -> HttpIdentityAdapter | None:
             timeout_seconds=settings.identity_timeout_seconds,
         )
     except ValueError as error:
-        raise HTTPException(503, "Identity verification is not configured") from error
+        raise HTTPException(503, "Identity verification is not configured", headers=NO_STORE) from error
 
 
 @router.get("/identity/canary", response_model=CanaryResponse)
@@ -61,7 +61,7 @@ def identity_canary(
     if not settings.identity_canary_enabled:
         raise HTTPException(404, "Not found", headers=NO_STORE)
     if verifier is None:
-        raise HTTPException(503, "Identity verification is not configured")
+        raise HTTPException(503, "Identity verification is not configured", headers=NO_STORE)
     if credentials is None:
         raise HTTPException(
             401, "Invalid or expired credentials",
@@ -74,7 +74,7 @@ def identity_canary(
     except IdentityUnauthorized as error:
         raise HTTPException(
             401, "Invalid or expired credentials",
-            headers={"WWW-Authenticate": "Bearer"},
+            headers={**NO_STORE, "WWW-Authenticate": "Bearer"},
         ) from error
     except IdentityUnavailable as error:
         raise HTTPException(503, "Identity verification unavailable", headers=NO_STORE) from error
