@@ -1,0 +1,7 @@
+- [x] Add an explicit disabled-by-default Identity canary setting.
+- [x] Implement a read-only handler using the HTTP Identity port.
+- [x] Compare verified principal to local UUID, username and role without writing.
+- [x] Add fail-closed tests for missing/revoked token, outage, drift and disabled flag.
+- [ ] Validate complete CI including PostgreSQL, Identity and cross-container contract.
+- [ ] Verify canary manually in local Docker with a migrated account.
+- [ ] Separate PR: tested runtime authorization cutover and removal of cross-service user FKs.

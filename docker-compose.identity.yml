@@ -4,6 +4,7 @@ services:
   backend:
     # Only with the opt-in Identity overlay: secrets stay server-side.
     environment:
+      IDENTITY_CANARY_ENABLED: ${IDENTITY_CANARY_ENABLED:-false}
       IDENTITY_SERVICE_URL: http://identity:8001
       IDENTITY_INTERNAL_TOKEN: ${IDENTITY_INTERNAL_TOKEN:?Define a random 32+ character IDENTITY_INTERNAL_TOKEN}
     depends_on:

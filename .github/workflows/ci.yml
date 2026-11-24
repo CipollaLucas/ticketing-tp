@@ -22,6 +22,7 @@ jobs:
       - run: npx --yes @fission-ai/openspec@2.1.1 validate identity-backfill-preflight --strict
       - run: npx --yes @fission-ai/openspec@2.1.1 validate identity-cutover-readiness --strict
       - run: npx --yes @fission-ai/openspec@2.1.1 validate identity-backup-restore-verification --strict
+      - run: npx --yes @fission-ai/openspec@2.1.1 validate identity-readonly-auth-canary --strict
   backend:
     runs-on: ubuntu-latest
     services:
