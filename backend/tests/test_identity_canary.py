@@ -71,6 +71,7 @@ def test_disabled_canary_is_not_accessible(context, monkeypatch):
         headers={"Authorization": "Bearer identity-only-token"},
     )
     assert response.status_code == 404
+    assert response.headers["Cache-Control"] == "no-store"
 
 
 def test_valid_identity_and_legacy_uuid_role_match(context):
@@ -99,11 +100,14 @@ def test_remote_rejection_denies_canary(context, error, status):
     )
     assert response.status_code == status
     assert "identity-only-token" not in response.text
+    assert response.headers["Cache-Control"] == "no-store"
 
 
 def test_missing_bearer_does_not_fall_back_to_legacy(context):
     client, _, _ = context
-    assert client.get("/api/v1/identity/canary").status_code == 401
+    response = client.get("/api/v1/identity/canary")
+    assert response.status_code == 401
+    assert response.headers["Cache-Control"] == "no-store"
 
 
 @pytest.mark.parametrize("role,username", [
