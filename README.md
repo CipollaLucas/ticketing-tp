@@ -3,7 +3,7 @@
 Trabajo práctico grupal (3 integrantes). Basado metodológicamente en [ticketin](https://github.com/jwackito/ticketin); implementación propia.
 
 ## Estado
-**Etapa I en curso.** Autenticación y roles integrados (PR #12). Esta rama resuelve #13: creación/edición de borradores, publicación y catálogo público paginado. Inventario disponible en el change ticket-inventory; compras y tickets siguen pendientes; este PR no cierra toda la fase 1. Ver [contratos y ejemplos](docs/API-ETAPA-I.md), [autenticación](docs/AUTENTICACION.md) y [evidencia de eventos](docs/evidencias/2026-11-23-issue-13-eventos.md).
+**Etapa I en curso.** Identidad y eventos integrados. Los changes #21/#22 agregan inventario, compra simulada idempotente, órdenes y tickets con tests de concurrencia PostgreSQL. Ver [contratos](docs/API-ETAPA-I.md), [evidencia de inventario](docs/evidencias/2026-11-23-issue-21-inventario.md) y [evidencia de compra](docs/evidencias/2026-11-23-issue-22-compra.md). Pendientes de revisión/merge: PRs [#23](https://github.com/CipollaLucas/ticketing-tp/pull/23) y [#24](https://github.com/CipollaLucas/ticketing-tp/pull/24). No se declara cerrada toda la fase: arquitectura física de microservicios, consolidación de changes por etapa e integración de UI deben evaluarse con el equipo.
 
 ## Ejecutar en local (Docker Desktop)
 ```bash
@@ -41,5 +41,5 @@ Ver `docs/PLAN-EQUIPO.md`, `docs/ADR-0001.md`, `docs/BITACORA.md` y `CONTRIBUTE.
 ## Advertencias
 - Backend en un proceso: la separación real en microservicios y la estrategia de consistencia se definirán en changes posteriores.
 - Auditoría HTTP a logs sin credenciales; autenticación Bearer y roles disponibles en esta rama.
-- Alembic crea usuarios, sesiones y eventos (0002_events). Publicar sin zonas permite mostrar metadatos; no ofrece venta ni disponibilidad.
-- Change OpenSpec: [event-management](openspec/changes/event-management/proposal.md). Validaciones y estado de CI/revisión en su evidencia; no archivar hasta aceptar el PR.
+- Alembic head 0004_purchasing crea identidad, eventos, inventario, órdenes y tickets. Publicar sin zonas da visibilidad; comprar requiere inventario y evento futuro.
+- Changes OpenSpec: [ticket-inventory](openspec/changes/ticket-inventory/proposal.md) y [ticket-purchasing](openspec/changes/ticket-purchasing/proposal.md). No archivar antes de aprobación/CI/merge.

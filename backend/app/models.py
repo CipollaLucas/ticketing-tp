@@ -3,6 +3,7 @@ from enum import StrEnum
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
+    BigInteger,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -114,3 +115,56 @@ class Seat(Base):
     zone_id: Mapped[UUID] = mapped_column(Uuid, index=True)
     mode: Mapped[str] = mapped_column(String(8), default="numbered")
     label: Mapped[str] = mapped_column(String(50))
+
+
+class Order(Base):
+    __tablename__ = "orders"
+    __table_args__ = (
+        UniqueConstraint("customer_id", "idempotency_key", name="uq_order_idempotency"),
+        CheckConstraint("total_minor >= 0", name="valid_order_total"),
+        CheckConstraint("currency IN ('ARS', 'USD', 'EUR')", name="valid_order_currency"),
+        CheckConstraint("status = 'confirmed'", name="valid_order_status"),
+    )
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    customer_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    event_id: Mapped[UUID] = mapped_column(ForeignKey("events.id"), index=True)
+    idempotency_key: Mapped[str] = mapped_column(String(128))
+    request_hash: Mapped[str] = mapped_column(String(64))
+    total_minor: Mapped[int] = mapped_column(BigInteger)
+    currency: Mapped[str] = mapped_column(String(3))
+    status: Mapped[str] = mapped_column(String(10), default="confirmed")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+
+class OrderItem(Base):
+    __tablename__ = "order_items"
+    __table_args__ = (
+        UniqueConstraint("order_id", "zone_id", name="uq_item_order_zone"),
+        UniqueConstraint("id", "zone_id", name="uq_item_id_zone"),
+        CheckConstraint("quantity BETWEEN 1 AND 100", name="valid_item_quantity"),
+        CheckConstraint("unit_price_minor >= 0", name="valid_item_price"),
+        CheckConstraint("subtotal_minor = quantity * unit_price_minor", name="valid_item_subtotal"),
+    )
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    order_id: Mapped[UUID] = mapped_column(ForeignKey("orders.id"), index=True)
+    zone_id: Mapped[UUID] = mapped_column(ForeignKey("zones.id"))
+    quantity: Mapped[int] = mapped_column(Integer)
+    unit_price_minor: Mapped[int] = mapped_column(BigInteger)
+    subtotal_minor: Mapped[int] = mapped_column(BigInteger)
+
+
+class Ticket(Base):
+    __tablename__ = "tickets"
+    __table_args__ = (
+        ForeignKeyConstraint(["order_item_id", "zone_id"],
+                             ["order_items.id", "order_items.zone_id"]),
+        ForeignKeyConstraint(["seat_id", "zone_id"], ["seats.id", "seats.zone_id"]),
+        CheckConstraint("status = 'valid'", name="valid_ticket_status"),
+    )
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    order_item_id: Mapped[UUID] = mapped_column(Uuid, index=True)
+    zone_id: Mapped[UUID] = mapped_column(ForeignKey("zones.id"))
+    seat_id: Mapped[UUID | None] = mapped_column(Uuid, unique=True)
+    status: Mapped[str] = mapped_column(String(5), default="valid")
