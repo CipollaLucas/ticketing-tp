@@ -1,0 +1,33 @@
+# Opt-in H3 preview: no legacy routes or persistent volumes are modified.
+services:
+  events-db:
+    image: postgres:16-alpine
+    profiles: ["events"]
+    environment:
+      POSTGRES_USER: events
+      POSTGRES_PASSWORD: ${EVENTS_DB_PASSWORD:-local-events-only}
+      POSTGRES_DB: events
+    volumes:
+      - events_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U events -d events"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  events:
+    build: ./services/events
+    profiles: ["events"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://events:${EVENTS_DB_PASSWORD:-local-events-only}@events-db:5432/events
+    depends_on:
+      events-db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8002:8002"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+volumes:
+  events_postgres_data:
