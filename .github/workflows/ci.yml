@@ -18,6 +18,7 @@ jobs:
       - run: npx --yes @fission-ai/openspec@2.1.1 validate ticketing-hexagonal-uow --strict
       - run: npx --yes @fission-ai/openspec@2.1.1 validate ticketing-hexagonal-inventory-queries --strict
       - run: npx --yes @fission-ai/openspec@2.1.1 validate identity-independent-foundation --strict
+      - run: npx --yes @fission-ai/openspec@2.1.1 validate identity-remote-introspection --strict
   backend:
     runs-on: ubuntu-latest
     services:
@@ -101,3 +102,25 @@ jobs:
       - run: pytest -q
       - run: docker build -t identity-service-ci .
         working-directory: services/identity
+
+  identity-contract:
+    runs-on: ubuntu-latest
+    env:
+      IDENTITY_INTERNAL_TOKEN: ci-only-contract-internal-token-0123456789abcdef
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Identity and legacy backend with private networking
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.identity.yml --profile identity build identity backend
+      - name: Start private Identity PostgreSQL
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.identity.yml --profile identity up -d identity-db
+      - name: Apply Identity-owned migration
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.identity.yml --profile identity run --rm identity alembic upgrade head
+      - name: Start Identity and legacy backend
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.identity.yml --profile identity up -d identity backend
+      - name: Verify remote login, token introspection and logout
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.identity.yml --profile identity exec -T backend python identity_contract_smoke.py
