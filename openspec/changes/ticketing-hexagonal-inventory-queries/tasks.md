@@ -1,0 +1,8 @@
+- [x] Define pure inventory creation and read application contracts.
+- [x] Implement SQLAlchemy inventory adapter with event locks and ownership checks.
+- [x] Replace inventory router persistence with use case calls.
+- [x] Define order/ticket read query port and SQLAlchemy adapter.
+- [x] Replace purchase read routes with query use cases.
+- [x] Add tests of inventory and query orchestration with fake adapters.
+- [ ] Run strict OpenSpec, Ruff, mypy, SQLite and PostgreSQL concurrent suites.
+- [ ] Review and merge after CI verification.
