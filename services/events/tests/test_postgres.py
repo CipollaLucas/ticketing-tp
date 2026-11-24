@@ -20,15 +20,12 @@ def test_independent_postgres_migration_roundtrip():
     url = os.environ["TEST_POSTGRES_URL"]
     engine = create_engine(url)
     config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
-    from sqlalchemy import text
     try:
         with engine.connect() as connection:
             config.attributes["connection"] = connection
             command.upgrade(config, "head")
             connection.commit()
-            assert inspect(connection).get_table_names() == ["alembic_version", "events"] or set(
-                inspect(connection).get_table_names()
-            ) == {"alembic_version", "events"}
+            assert set(inspect(connection).get_table_names()) == {"alembic_version", "events"}
             assert len(inspect(connection).get_foreign_keys("events")) == 0
         now = datetime.now(UTC)
         with Session(engine) as db:
