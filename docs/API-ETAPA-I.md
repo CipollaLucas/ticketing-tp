@@ -1,6 +1,6 @@
 # Contratos HTTP — Etapa I
 
-Issues #3, #6 y #13. Identidad integrada en PR #12; eventos implementados en feat/event-management. Órdenes, inventario y devoluciones siguen siendo propuestas futuras. Base: `/api/v1`. JSON UTF-8. IDs: UUID. Fechas ISO 8601 UTC. Precios en unidades menores enteras con moneda ISO, nunca float. Campos desconocidos de escritura se rechazan (422). Roles: `customer`, `event_owner`, `administrator`.
+Issues #3, #6, #13, #21 y #22. Identidad y eventos integrados; inventario y compra implementados en los changes ticket-inventory y ticket-purchasing. Devoluciones pendientes de Etapa III. Base: `/api/v1`. JSON UTF-8. IDs: UUID. Fechas ISO 8601 UTC. Precios en unidades menores enteras con moneda ISO, nunca float. Campos desconocidos de escritura se rechazan (422). Roles: `customer`, `event_owner`, `administrator`.
 
 ## Disponibilidad y permisos
 
@@ -18,15 +18,15 @@ Issues #3, #6 y #13. Identidad integrada en PR #12; eventos implementados en fea
 | POST /events | Owner/admin, owner_id del servidor | 201 Event draft | Implementada (#13) |
 | PATCH /events/{event_id} | Owner propio/admin | 200 Event | Implementada (#13) |
 | POST /events/{event_id}/publish | Owner propio/admin | 200 Event | Implementada (#13) |
-| POST /events/{event_id}/unpublish | Owner propio/admin; venta aún no implementada | 200 Event draft | Implementada (#13) |
-| POST /orders | Customer, Idempotency-Key obligatorio | 201 Order | Futura, compra simulada sin pago |
-| GET /orders/{order_id} | Customer propietario/admin | 200 Order | Futura |
-| GET /me/tickets?limit=20&offset=0 | Customer, solo propios | 200 página | Futura |
+| POST /events/{event_id}/unpublish | Owner propio/admin; sin ventas | 200 Event draft | Implementada (#13) |
+| POST /orders | Customer, Idempotency-Key obligatorio | 201 Order; replay 200 | Implementada (#22), sin pago real |
+| GET /orders/{order_id} | Customer propietario/admin | 200 Order | Implementada (#22) |
+| GET /me/tickets?limit=20&offset=0 | Bearer, solo propios | 200 página | Implementada (#22) |
 | POST /tickets/{ticket_id}/refund | Customer propietario, antes del inicio (política propuesta) | 201 Refund pending; replay 200 | Futura, Etapa III |
 | POST /admin/refunds/{refund_id}/approve | Administrador, antes del inicio (política propuesta) | 200 Refund approved | Futura, Etapa III |
 | POST /admin/refunds/{refund_id}/reject | Administrador, motivo obligatorio | 200 Refund rejected | Futura, Etapa III |
 
-Disponibilidad referida a esta rama: los eventos requieren migrar a 0002_events. Las rutas de órdenes, tickets y devoluciones no están implementadas; no usar los ejemplos futuros como prueba de venta.
+Esta rama requiere `alembic upgrade head` (0004_purchasing). Órdenes y tickets son compras simuladas persistidas. Devoluciones no están implementadas.
 
 ## Identidad (contrato acordado con el diseño #6)
 
@@ -83,13 +83,10 @@ Publicar/despublicar requiere body `{}` y devuelve 200 Event. Repetir el mismo
 estado devuelve 200 sin cambiar timestamps. Publicar exige descripción no vacía y
 fechas válidas/futuras; 422 conserva draft.
 
-**Decisión del incremento #13:** se permite publicar sin zonas. El requisito
-anterior de zonas configuradas bloquearía este issue, que excluye inventario.
-Publicación significa visibilidad de metadatos, no habilitación de compra. No se
-serializan zones/stock/precios ficticios. Cuando se implemente compra deberá
-validarse inventario y bloquear edición/despublicación con ventas; ese guard no
-existe todavía porque no hay órdenes ni ventas. El alcance confirmado por el
-usuario es únicamente #13; esta decisión se deja visible para revisión de Lucas.
+**Publicación e inventario (ADR-0004):** publicar sin zonas sigue permitido y da
+visibilidad a metadatos. Comprar exige published, inicio futuro y stock suficiente.
+Con ventas se rechaza despublicar (409); la edición ya exige draft. El bloqueo
+compartido de Event serializa compra y despublicación.
 
 ### Recorrido por API
 
@@ -111,19 +108,44 @@ curl 'http://localhost:8000/api/v1/events?limit=20&offset=0'
 curl "http://localhost:8000/api/v1/events/$EVENT_ID"
 ```
 
-## Órdenes, tickets y devoluciones (futuros)
+## Órdenes y tickets — issue #22
 
-Header `Idempotency-Key: compra-demo-001`. Request sin precio, total ni customer_id:
+`POST /orders`: rol customer, Bearer e `Idempotency-Key: compra-demo-001` obligatorios.
+Request sin precio, total, moneda ni customer_id (campos extra: 422):
 ```json
 {"event_id":"00000000-0000-0000-0000-000000000010","items":[{"zone_id":"00000000-0000-0000-0000-000000000020","quantity":1,"seat_ids":[]}]}
 ```
-En numerado, quantity coincide con cantidad de seat_ids distintos. En general, seat_ids vacío. Items no vacíos; cantidades enteras positivas; un solo evento/moneda. El servidor canoniza el payload y calcula precios/total. Confirmación simulada, sin pago externo:
-```json
-{"id":"00000000-0000-0000-0000-000000000030","event_id":"00000000-0000-0000-0000-000000000010","status":"confirmed","currency":"ARS","total":1200000,"items":[{"zone_id":"00000000-0000-0000-0000-000000000020","quantity":1,"unit_price":1200000}],"tickets":[{"id":"00000000-0000-0000-0000-000000000040","zone_id":"00000000-0000-0000-0000-000000000020","seat_id":null,"status":"valid"}]}
-```
-Misma identidad/key/payload: mismo Order, 201 y `Idempotency-Replayed: true`; key con payload diferente: 409; inventario agotado: 409 sin orden ni tickets; fallo transitorio: 503, reintentar con misma key. Validación o rollback no consume la key. Clave de 1–128 caracteres, ámbito cliente + operación, persistida con la orden sin TTL en esta etapa.
+En numbered quantity coincide con seat_ids distintos y existentes en la zona;
+en general seat_ids vacío u omitido. 1..20 zonas únicas, quantity entero estricto
+1..100, máximo 100 unidades por orden, un solo evento y moneda. Inventario/fechas
+se revalidan bajo locks PostgreSQL. No hay reserva previa ni pago externo.
 
-`GET /me/tickets`: página de tickets con event_id/name/start_at, order_id, zone_id/name, seat_id/label nullable y status. Nunca devuelve tickets ajenos. No incluye QR real en el mockup.
+Respuesta 201: `{id,customer_id,event_id,status:"confirmed",currency,total_minor,
+created_at,items:[{id,zone_id,quantity,unit_price_minor,subtotal_minor}],
+tickets:[{id,order_item_id,zone_id,seat_id,status:"valid"}]}`. Todos los importes son
+enteros en unidades menores, históricos y calculados por servidor; total usa int64.
+Se ajustan los nombres del contrato antes propuesto (`total`, `unit_price`) a
+`total_minor`, `unit_price_minor`, explicitando unidad. IDs opacos generados por servidor.
+
+Mismo cliente/key/payload canónico: **200**, idéntica orden y header
+`Idempotent-Replayed: true`; primer éxito 201 y header false. Orden de items/asientos
+no cambia identidad del payload. Misma key con otro payload: 409. Clave ASCII visible
+1..128, persistida sin TTL con la orden; ámbito cliente, sin consumo ante rollback.
+Replay funciona incluso después de agotarse stock o empezar el evento.
+
+Cupo/asiento agotado o evento fuera de venta: 409, sin orden ni tickets parciales.
+Evento/zona desconocidos o zona de otro evento: 404. Modalidad, asiento ajeno a zona,
+monedas mezcladas o payload inválido: 422. Falta Bearer: 401; rol distinto de customer:403.
+Una excepción de infraestructura revierte la transacción y puede producir 500;
+no hay traducción general a 503 en este incremento. Tras error de red/servidor,
+reintentar con la misma key, sin dar la compra por fallida hasta consultar el resultado.
+
+`GET /orders/{id}`: propietario o administrador, misma respuesta sin key/hash;
+ajena 403, desconocida 404. `GET /me/tickets?limit=20&offset=0`: Bearer, solo tickets
+propios; `{items:[Ticket],limit,offset,total}` ordenado por UUID. limit 1..100,
+offset >=0; no incluye datos de eventos/zonas expandidos ni QR. El detalle público
+de eventos y el inventario permiten resolver sus nombres; no entregan códigos
+ni tickets de terceros. La UI de compra queda fuera de estos issues backend.
 
 ### Devoluciones — propuesta para Etapa III
 
