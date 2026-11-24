@@ -51,6 +51,7 @@ def identity_canary(
     response: Response,
     db: Annotated[Session, Depends(get_db)],
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
+    verifier: Annotated[HttpIdentityAdapter, Depends(identity_adapter)],
 ) -> CanaryResponse:
     """No mutation and no fallback to a legacy session on failed introspection."""
     response.headers["Cache-Control"] = "no-store"
@@ -63,7 +64,7 @@ def identity_canary(
         )
     try:
         principal = authenticate_remote(
-            credentials.credentials, identity_adapter(),
+            credentials.credentials, verifier,
         )
     except IdentityUnauthorized as error:
         raise HTTPException(
