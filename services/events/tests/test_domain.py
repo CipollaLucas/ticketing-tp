@@ -6,7 +6,6 @@ import pytest
 from events_service.application import public_catalog
 from events_service.domain import EventRecord, is_publicly_visible, validate_event
 
-
 NOW = datetime(2026, 11, 24, tzinfo=UTC)
 
 
