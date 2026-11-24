@@ -17,7 +17,7 @@ from pydantic import (
 from sqlalchemy import func, select
 
 from app.auth import Db, StrictRequest, require_event_owner, require_owner_or_admin
-from app.models import Event, Role, User
+from app.models import Event, Order, Role, User
 
 router = APIRouter(prefix="/api/v1", tags=["Events"])
 Owner = Annotated[User, Depends(require_event_owner)]
@@ -165,6 +165,8 @@ def transition(event_id: UUID, status: str, user: User, db: Db) -> Event:
         validate_event(event_values(event))
         if not event.description.strip():
             raise HTTPException(422, "Publication requires a description")
+    if status == "draft" and db.scalar(select(Order.id).where(Order.event_id == event.id).limit(1)):
+        raise HTTPException(409, "Cannot unpublish an event with sales")
     event.status = status
     event.updated_at = datetime.now(UTC)
     db.commit()
