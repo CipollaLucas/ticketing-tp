@@ -3,7 +3,7 @@
 Trabajo práctico grupal (3 integrantes). Basado metodológicamente en [ticketin](https://github.com/jwackito/ticketin); implementación propia.
 
 ## Estado
-**Etapa I en curso.** Autenticación y roles integrados (PR #12). Esta rama resuelve #13: creación/edición de borradores, publicación y catálogo público paginado. Inventario, compras y tickets siguen pendientes; este PR no cierra toda la fase 1. Ver [contratos y ejemplos](docs/API-ETAPA-I.md), [autenticación](docs/AUTENTICACION.md) y [evidencia de eventos](docs/evidencias/2026-11-23-issue-13-eventos.md).
+**Etapa I en curso.** Autenticación y roles integrados (PR #12). Esta rama resuelve #13: creación/edición de borradores, publicación y catálogo público paginado. Inventario disponible en el change ticket-inventory; compras y tickets siguen pendientes; este PR no cierra toda la fase 1. Ver [contratos y ejemplos](docs/API-ETAPA-I.md), [autenticación](docs/AUTENTICACION.md) y [evidencia de eventos](docs/evidencias/2026-11-23-issue-13-eventos.md).
 
 ## Ejecutar en local (Docker Desktop)
 ```bash

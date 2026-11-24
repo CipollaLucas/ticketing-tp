@@ -2,7 +2,17 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, Uuid
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+    Uuid,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -63,3 +73,44 @@ class Event(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
+
+
+class Zone(Base):
+    __tablename__ = "zones"
+    __table_args__ = (
+        UniqueConstraint("event_id", "name", name="uq_zone_event_name"),
+        UniqueConstraint("id", "mode", name="uq_zone_id_mode"),
+        CheckConstraint("mode IN ('general', 'numbered')", name="valid_zone_mode"),
+        CheckConstraint("length(trim(name)) BETWEEN 1 AND 100", name="valid_zone_name"),
+        CheckConstraint("price_minor BETWEEN 0 AND 2147483647", name="valid_zone_price"),
+        CheckConstraint("currency IN ('ARS', 'USD', 'EUR')", name="valid_zone_currency"),
+        CheckConstraint(
+            "(mode = 'general' AND capacity IS NOT NULL AND available IS NOT NULL "
+            "AND capacity BETWEEN 1 AND 1000000 AND available BETWEEN 0 AND capacity) OR "
+            "(mode = 'numbered' AND capacity IS NULL AND available IS NULL)",
+            name="valid_zone_capacity",
+        ),
+    )
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    event_id: Mapped[UUID] = mapped_column(ForeignKey("events.id"), index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    mode: Mapped[str] = mapped_column(String(8))
+    price_minor: Mapped[int] = mapped_column(Integer)
+    currency: Mapped[str] = mapped_column(String(3))
+    capacity: Mapped[int | None] = mapped_column(Integer)
+    available: Mapped[int | None] = mapped_column(Integer)
+
+
+class Seat(Base):
+    __tablename__ = "seats"
+    __table_args__ = (
+        UniqueConstraint("zone_id", "label", name="uq_seat_zone_label"),
+        UniqueConstraint("id", "zone_id", name="uq_seat_id_zone"),
+        ForeignKeyConstraint(["zone_id", "mode"], ["zones.id", "zones.mode"]),
+        CheckConstraint("mode = 'numbered'", name="valid_seat_mode"),
+        CheckConstraint("length(trim(label)) BETWEEN 1 AND 50", name="valid_seat_label"),
+    )
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    zone_id: Mapped[UUID] = mapped_column(Uuid, index=True)
+    mode: Mapped[str] = mapped_column(String(8), default="numbered")
+    label: Mapped[str] = mapped_column(String(50))

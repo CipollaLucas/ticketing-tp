@@ -1,6 +1,6 @@
 # Modelo de dominio de la ticketera
 
-Modelo del issue #4. Event implementado por #13; inventario, órdenes, tickets y devoluciones todavía propuestos. [ADR de consistencia](ADR-0002.md).
+Modelo del issue #4. Event implementado por #13; inventario implementado por #21; órdenes, tickets y devoluciones todavía propuestos. [ADR de consistencia](ADR-0002.md).
 
 ## Entidades y relaciones
 
@@ -65,3 +65,5 @@ Los vínculos entre límites son referencias por ID; no autorizan a escribir tab
 | Notificación caída | Falla consumidor después del commit | Orden confirmada; entrega pendiente/reintentable |
 
 Las pruebas de compra/eventos corresponden a Etapa I; las de devolución a Etapa III. SQLite o mocks no demuestran locks ni concurrencia de PostgreSQL. La aceptación documental actual consiste en trazabilidad de cada regla y escenarios OpenSpec válidos; no se reportan ventas ni pruebas de concurrencia ejecutadas.
+
+Implementación #21: Zone integra Capacity en columnas nullable exclusivas de general. Seat tiene UUID global y etiqueta única por zona; FK zona/modo impide asientos en general. Ver ADR-0004.
