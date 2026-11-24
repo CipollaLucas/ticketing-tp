@@ -50,7 +50,7 @@ def cmd(args, *, output=None, timeout=120, operation="Docker operation"):
             if stripped.startswith(("pg_restore: error:", "psql: error:", "ERROR:")):
                 reason = stripped.split(":", 2)[-1].strip()
                 reason = re.sub(r"'[^']*'", "'[redacted]'", reason)
-                reason = re.sub(r'password\\s*[:=]\\s*\\S+', 'password=[redacted]', reason, flags=re.I)
+                reason = re.sub(r'password\s*[:=]\s*\S+', 'password=[redacted]', reason, flags=re.I)
                 safe_errors.append(reason[:180])
         suffix = f" | PostgreSQL: {'; '.join(safe_errors[:2])}" if safe_errors else ""
         raise BackupError(f"{operation} failed (exit {result.returncode}){suffix}")
