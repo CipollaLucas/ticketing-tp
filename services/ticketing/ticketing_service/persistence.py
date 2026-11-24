@@ -2,7 +2,10 @@
 from typing import Literal, cast
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, ForeignKey, Integer, String, Uuid, create_engine, select
+from sqlalchemy import (
+    CheckConstraint, ForeignKey, ForeignKeyConstraint, Index, Integer, String,
+    UniqueConstraint, Uuid, create_engine, select,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 from ticketing_service.domain import GateCommand, GateState, SaleState
@@ -38,6 +41,54 @@ class GateCommandRow(Base):
     result_state: Mapped[str] = mapped_column(String(8), nullable=False)
     result_version: Mapped[int] = mapped_column(Integer, nullable=False)
     result_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class ZoneRow(Base):
+    """Ticketing owns zones; event_id is a cross-context UUID, not an FK."""
+    __tablename__ = "zones"
+    __table_args__ = (
+        UniqueConstraint("event_id", "name", name="uq_zone_event_name"),
+        UniqueConstraint("id", "mode", name="uq_zone_id_mode"),
+        CheckConstraint("mode IN ('general', 'numbered')", name="valid_zone_mode"),
+        CheckConstraint("length(trim(name)) BETWEEN 1 AND 100", name="valid_zone_name"),
+        CheckConstraint("price_minor BETWEEN 0 AND 2147483647", name="valid_zone_price"),
+        CheckConstraint("currency IN ('ARS', 'USD', 'EUR')", name="valid_zone_currency"),
+        CheckConstraint(
+            "(mode = 'general' AND capacity IS NOT NULL AND available IS NOT NULL "
+            "AND capacity BETWEEN 1 AND 1000000 AND available BETWEEN 0 AND capacity) OR "
+            "(mode = 'numbered' AND capacity IS NULL AND available IS NULL)",
+            name="valid_zone_capacity",
+        ),
+        Index("ix_zones_event_id", "event_id"),
+    )
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
+    event_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    mode: Mapped[str] = mapped_column(String(8), nullable=False)
+    price_minor: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    capacity: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    available: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class SeatRow(Base):
+    """Composite FK ensures a seat can belong only to a numbered zone."""
+    __tablename__ = "seats"
+    __table_args__ = (
+        UniqueConstraint("zone_id", "label", name="uq_seat_zone_label"),
+        UniqueConstraint("id", "zone_id", name="uq_seat_id_zone"),
+        ForeignKeyConstraint(
+            ["zone_id", "mode"], ["zones.id", "zones.mode"],
+            name="fk_seat_numbered_zone",
+        ),
+        CheckConstraint("mode = 'numbered'", name="valid_seat_mode"),
+        CheckConstraint("length(trim(label)) BETWEEN 1 AND 50", name="valid_seat_label"),
+        Index("ix_seats_zone_id", "zone_id"),
+    )
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
+    zone_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
+    mode: Mapped[str] = mapped_column(String(8), nullable=False, default="numbered")
+    label: Mapped[str] = mapped_column(String(50), nullable=False)
 
 
 engine = create_engine(settings.database_url, pool_pre_ping=True)
