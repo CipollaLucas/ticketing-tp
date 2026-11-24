@@ -32,17 +32,28 @@ class BackupError(RuntimeError):
     pass
 
 
-def cmd(args, *, output=None, timeout=120):
+def cmd(args, *, output=None, timeout=120, operation="Docker operation"):
+    # Only allow an explicit, non-secret operation label in error output.
+    # Never echo argv (contains POSTGRES_PASSWORD during docker run) or raw stderr.
     result = subprocess.run(
         args, stdout=output if output is not None else subprocess.PIPE,
         stderr=subprocess.PIPE, timeout=timeout, check=False,
     )
     if result.returncode != 0:
         # Never print subprocess stderr: some clients may echo database environment.
-        raise BackupError(
-            f"Command failed (exit {result.returncode}): {args[0]} {args[1]} "
-            "(details withheld; credentials may be present)"
-        )
+        lines = result.stderr.decode("utf-8", errors="replace").splitlines()
+        safe_errors = []
+        for line in lines:
+            stripped = line.strip()
+            # PostgreSQL-generated error category only: redact SQL literals and
+            # values, do not echo arbitrary Docker diagnostics or SQL statements.
+            if stripped.startswith(("pg_restore: error:", "psql: error:", "ERROR:")):
+                reason = stripped.split(":", 2)[-1].strip()
+                reason = re.sub(r"'[^']*'", "'[redacted]'", reason)
+                reason = re.sub(r'password\s*[:=]\s*\S+', 'password=[redacted]', reason, flags=re.I)
+                safe_errors.append(reason[:180])
+        suffix = f" | PostgreSQL: {'; '.join(safe_errors[:2])}" if safe_errors else ""
+        raise BackupError(f"{operation} failed (exit {result.returncode}){suffix}")
     return result.stdout.decode("utf-8", errors="replace").strip() if output is None else ""
 
 
@@ -85,7 +96,7 @@ def source_table_counts(container_id, user, database, tables):
     output = cmd([
         "docker", "exec", container_id, "psql", "-U", user, "-d", database,
         "-X", "-A", "-t", "-F", "|", "-c", query,
-    ])
+    ], operation="read table counts")
     try:
         counts = [int(v) for v in output.splitlines()[-1].split("|")]
     except (IndexError, ValueError) as error:
@@ -118,6 +129,25 @@ def restore_isolated(kind, archive, expected_counts):
             "-e", f"POSTGRES_PASSWORD={password}", IMAGE,
         ])
         started = True
+        # The official PostgreSQL image starts a *temporary* postmaster
+        # during initdb. pg_isready can succeed briefly, then that server
+        # shuts down before the final postmaster starts. Waiting only for
+        # pg_isready causes intermittent docker exec / pg_restore failures.
+        initialized = False
+        for _ in range(100):
+            logs = subprocess.run(
+                ["docker", "logs", name],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+            )
+            if logs.returncode == 0 and (
+                b"PostgreSQL init process complete; ready for start up."
+                in logs.stdout + logs.stderr
+            ):
+                initialized = True
+                break
+            time.sleep(0.3)
+        if not initialized:
+            raise BackupError("Temporary PostgreSQL initialization did not finish")
         for _ in range(50):
             ready = subprocess.run(
                 ["docker", "exec", name, "pg_isready", "-U", "verify", "-d", "verify"],
@@ -125,15 +155,18 @@ def restore_isolated(kind, archive, expected_counts):
             )
             if ready.returncode == 0:
                 break
-            time.sleep(0.4)
+            time.sleep(0.3)
         else:
-            raise BackupError("Isolated PostgreSQL did not become ready")
-        cmd(["docker", "cp", str(archive), f"{name}:/tmp/verify.dump"])
+            raise BackupError("Final PostgreSQL server did not become ready")
+        print(f"VERIFY {kind}: restoring archive into temporary offline PostgreSQL", flush=True)
+        cmd(["docker", "cp", str(archive), f"{name}:/tmp/verify.dump"],
+            operation=f"copy {kind} archive to temporary PostgreSQL")
         cmd([
             "docker", "exec", name, "pg_restore",
             "-U", "verify", "-d", "verify",
             "--exit-on-error", "--no-owner", "--no-acl", "/tmp/verify.dump",
-        ], timeout=180)
+        ], timeout=180, operation=f"pg_restore {kind} in temporary PostgreSQL")
+        print(f"VERIFY {kind}: checking restored table counts", flush=True)
         actual = source_table_counts(name, "verify", "verify", TABLES[kind])
         if actual != expected_counts:
             raise BackupError(
