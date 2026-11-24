@@ -34,7 +34,9 @@ class CanaryResponse(BaseModel):
     legacy_uuid_role_match: bool
 
 
-def identity_adapter() -> HttpIdentityAdapter:
+def identity_adapter() -> HttpIdentityAdapter | None:
+    if not settings.identity_canary_enabled:
+        return None
     if not settings.identity_service_url or not settings.identity_internal_token:
         raise HTTPException(503, "Identity verification is not configured")
     try:
@@ -51,12 +53,14 @@ def identity_canary(
     response: Response,
     db: Annotated[Session, Depends(get_db)],
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
-    verifier: Annotated[HttpIdentityAdapter, Depends(identity_adapter)],
+    verifier: Annotated[HttpIdentityAdapter | None, Depends(identity_adapter)],
 ) -> CanaryResponse:
     """No mutation and no fallback to a legacy session on failed introspection."""
     response.headers["Cache-Control"] = "no-store"
     if not settings.identity_canary_enabled:
         raise HTTPException(404, "Not found")
+    if verifier is None:
+        raise HTTPException(503, "Identity verification is not configured")
     if credentials is None:
         raise HTTPException(
             401, "Invalid or expired credentials",
