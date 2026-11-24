@@ -14,6 +14,7 @@ jobs:
           node-version: '22'
       - run: npx --yes @fission-ai/openspec@2.1.1 validate ticket-inventory --strict
       - run: npx --yes @fission-ai/openspec@2.1.1 validate ticket-purchasing --strict
+      - run: npx --yes @fission-ai/openspec@2.1.1 validate microservices-hexagonal-migration --strict
   backend:
     runs-on: ubuntu-latest
     services:

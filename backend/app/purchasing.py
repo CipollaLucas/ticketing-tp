@@ -1,7 +1,5 @@
 """Atomic simulated purchases; PostgreSQL is the concurrency authority."""
-import json
 from datetime import UTC, datetime
-from hashlib import sha256
 from typing import Annotated, Self
 from uuid import UUID
 
@@ -13,6 +11,12 @@ from sqlalchemy.exc import IntegrityError
 from app.auth import CurrentUser, Db, StrictRequest, require_owner_or_admin
 from app.events import Limit, Offset, utc
 from app.models import Event, Order, OrderItem, Role, Seat, Ticket, User, Zone
+from app.ticketing_core.domain.purchase import (
+    PurchaseIntent,
+    PurchaseKeyConflict,
+    TicketSelection,
+    assert_replay_compatible,
+)
 
 router = APIRouter(prefix="/api/v1", tags=["Purchasing"])
 Key = Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=128,
@@ -48,11 +52,13 @@ class Purchase(StrictRequest):
         return self
 
     def digest(self) -> str:
-        data = {"event_id": str(self.event_id), "items": [
-            {"zone_id": str(i.zone_id), "quantity": i.quantity,
-             "seat_ids": sorted(str(s) for s in i.seat_ids)}
-            for i in sorted(self.items, key=lambda i: i.zone_id)]}
-        return sha256(json.dumps(data, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        # Pydantic is the inbound HTTP adapter; canonical identity belongs to the domain.
+        intent = PurchaseIntent(
+            event_id=self.event_id,
+            items=tuple(TicketSelection(i.zone_id, i.quantity, tuple(i.seat_ids))
+                        for i in self.items),
+        )
+        return intent.canonical_hash()
 
 
 class TicketResponse(BaseModel):
@@ -167,8 +173,10 @@ def purchase(payload: Purchase, user: Customer, key: Key, db: Db,
         existing = db.scalar(select(Order).where(Order.customer_id == user.id,
                                                  Order.idempotency_key == key))
         if existing is not None:
-            if existing.request_hash != payload.digest():
-                raise HTTPException(409, "Idempotency key used for another payload")
+            try:
+                assert_replay_compatible(existing.request_hash, payload.digest())
+            except PurchaseKeyConflict as error:
+                raise HTTPException(409, str(error)) from error
             result = order_response(existing, db)
             db.commit()
             response.status_code = 200
