@@ -21,6 +21,7 @@ jobs:
       - run: npx --yes @fission-ai/openspec@2.1.1 validate identity-remote-introspection --strict
       - run: npx --yes @fission-ai/openspec@2.1.1 validate identity-backfill-preflight --strict
       - run: npx --yes @fission-ai/openspec@2.1.1 validate identity-cutover-readiness --strict
+      - run: npx --yes @fission-ai/openspec@2.1.1 validate identity-backup-restore-verification --strict
   backend:
     runs-on: ubuntu-latest
     services:
@@ -126,3 +127,30 @@ jobs:
       - name: Verify remote login, token introspection and logout
         run: |
           docker compose -f docker-compose.yml -f docker-compose.identity.yml --profile identity exec -T backend python identity_contract_smoke.py
+
+  db-backup-restore:
+    runs-on: ubuntu-latest
+    env:
+      IDENTITY_INTERNAL_TOKEN: ci-backup-configuration-only-token-0123456789abcdef
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build backend and Identity images
+        run: |
+          docker compose -f docker-compose.yml build backend
+          docker compose -f docker-compose.yml -f docker-compose.identity.yml --profile identity build identity
+      - name: Start isolated source databases
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.identity.yml --profile identity up -d db identity-db
+      - name: Apply both independent migrations
+        run: |
+          docker compose -f docker-compose.yml run --rm backend alembic upgrade head
+          docker compose -f docker-compose.yml -f docker-compose.identity.yml --profile identity run --rm identity alembic upgrade head
+      - name: Verify separate dumps and network-isolated restores
+        run: python scripts/verify_identity_db_backups.py
+      - name: Confirm no backup files are tracked
+        run: |
+          test -z "$(git ls-files backups)"
+          git status --short
