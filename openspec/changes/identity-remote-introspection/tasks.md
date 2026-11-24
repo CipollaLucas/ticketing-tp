@@ -1,0 +1,7 @@
+- [x] Add framework-free IdentityPort and principal snapshot.
+- [x] Add bounded-timeout HTTP adapter with service credential.
+- [x] Test 200/401/403/5xx, malformed response, redirects and timeout fail closed.
+- [x] Add opt-in Compose wiring and cross-container login/introspection/logout smoke.
+- [ ] Validate OpenSpec and six CI jobs, including real HTTP cross-container smoke.
+- [ ] Merge on green CI and run local smoke.
+- [ ] Separate PR: remove legacy database FKs and replace runtime authentication with remote Identity in Events and Ticketing.
