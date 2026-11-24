@@ -179,7 +179,7 @@ export default function CoreWorkspace() {
   }
 
   function setPurchaseEvent(next: string) {
-    setEventId(next); setZoneId(''); setSelectedSeats([]); setQuantity(1); clearAttempt();
+    setEventId(next); setInventory(null); setZoneId(''); setSelectedSeats([]); setQuantity(1); clearAttempt();
   }
 
   const loginPanel = (
