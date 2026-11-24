@@ -1,6 +1,6 @@
 # Entrega Etapa I — Core (Tópicos II 2026)
 
-Estado al 24/11/2026: **implementación de core integrada en `main`; validación automatizada satisfactoria; aceptación funcional manual parcialmente completada**.
+Estado al 24/11/2026: **backend y catálogo integrados en `main`; frontend funcional de Etapa I preparado en PR #28, con aceptación visual pendiente**.
 
 ## Alcance previsto por el enunciado
 Backend, APIs, autenticación, compra de tickets y mockups, mediante changes OpenSpec incrementales. No incluye recomendaciones/caché (Etapa II), ni colas masivas, devoluciones, búsqueda avanzada y estrés completo (Etapa III).
@@ -19,9 +19,9 @@ Backend, APIs, autenticación, compra de tickets y mockups, mediante changes Ope
 | Pruebas en Docker PostgreSQL | `146 passed, 1 warning in 27.53s`, sin skips | Comprobadas localmente |
 | Static checks | `ruff check .` y `mypy app`, 10 archivos | Comprobados localmente |
 | Comportamiento manual | Dos órdenes confirmadas con un ticket cada una; tercer intento excediendo cupo = HTTP 409 `Insufficient capacity` | Comprobado |
-| Replay idempotente | Usuario informó que la misma solicitud devolvió la misma orden y el mismo JSON | Comportamiento observado, pendiente evidencia explícita de HTTP 200 y header `Idempotent-Replayed: true` |
+| Replay idempotente | Captura de Swagger mostró `idempotent-replayed: true` para la operación repetida; misma orden observada | Comportamiento validado; conservar evidencia del status HTTP 200 en el acta final |
 | UI real vs modo demo | CI frontend y OpenSpec válidos; UAT visual final sobre `main` | Pendiente prueba visual final |
-| Flujo HTTP de compra desde React | Backend tiene `/orders`; frontend real mantiene venta deshabilitada deliberadamente | No implementado; alcance UI de compra pendiente de decisión |
+| Flujo HTTP de compra desde React | PR #28 implementa ingreso real, evento y zona, compra simulada y listado de tickets | Implementado en rama del PR #28; pendiente UAT visual y merge |
 
 ## Pruebas concurrentes automatizadas
 
@@ -36,11 +36,11 @@ La suite del PR #25 verifica en PostgreSQL real:
 
 ## Pendientes explícitos de aceptación de Etapa I
 
-1. Reproducir la compra original con la misma clave: guardar respuesta `200`, header `Idempotent-Replayed: true` y mismo `order.id` y `ticket.id`.
-2. Probar visualmente en el frontend integrado a `main`: catálogo con evento publicado, detalle, ausencia de compra real, modo demo, estados vacíos/error.
+1. Guardar evidencia completa del replay HTTP `200` junto con el header `Idempotent-Replayed: true` y los IDs coincidentes (el header ya fue observado).
+2. Completar UAT visual del PR #28: catálogo real, ingreso, owner/zonas/publicación, cliente/compra/tickets, modos demo y errores; recoger capturas.
 3. Confirmar `alembic current: 0004_purchasing (head)` después de actualizar al commit final de `main`.
 4. Revisar y archivar changes OpenSpec aceptados. El proyecto venía con `project-bootstrap` sin deltas/skip_specs; revisar la validación global, además de las validaciones específicas exitosas.
-5. Decidir explícitamente si la entrega exige un recorrido de compra **desde React** o si el backend/API más mockup satisfacen la Etapa I; documentar el resultado según criterio docente.
+5. El recorrido de compra simulada desde React está implementado en PR #28, sin pago real ni QR. Validarlo antes de la primera entrega; no confundir compra simulada con transacción financiera.
 
 ## Comandos de reproducción
 
@@ -56,6 +56,10 @@ docker compose exec backend mypy app
 ```
 
 Frontend: `http://localhost:5173`; Swagger: `http://localhost:8000/docs`. Ejecutar solo contra desarrollo local.
+
+## Interfaz funcional en Etapa I
+
+El PR #28 incorpora un acceso **Operar ticketera** desde React con registro/login, permisos de usuario reales, creación/publicación de eventos, configuración de zonas generales o numeradas, compra idempotente y consulta de tickets de prueba. Se conserva el catálogo editorial y el modo demo. Ver [guía de demostración](ETAPA-I-DEMO-GUIA.md).
 
 ## Próximas etapas
 - Etapa II: recomendación personalizada por historial/preferencias y estrategia de caché con TTL e invalidación.
