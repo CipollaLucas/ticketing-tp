@@ -9,4 +9,5 @@ Foco: canonicalización, fallo tras descuento, última localidad, propiedad, mon
 - [x] 5. Añadir pruebas PostgreSQL de concurrencia, estrés inicial y rollback, y migración reversible.
 - [x] 6. Documentar API/dominio/bitácora/evidencia; ejecutar suite, Ruff, mypy, OpenSpec y revisión independiente.
 - [x] 7. Abrir PR apilado, pedir revisión a Lucas y verificar CI.
-- [ ] 8. Aprobar y fusionar PRs en orden; no archivar hasta cumplir revisión/CI (fuera de esta ejecución).
+- [x] 8. Revisión aprobada, PR #24 integrado mediante #25, CI 4/4 y UAT de compra/sobreventa (24/11/2026).
+- [ ] 9. Archivo del change con CLI OpenSpec tras verificación de specs.
