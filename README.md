@@ -3,7 +3,12 @@
 Trabajo práctico grupal (3 integrantes). Basado metodológicamente en [ticketin](https://github.com/jwackito/ticketin); implementación propia.
 
 ## Estado
-**Etapa I en curso.** Identidad y eventos integrados. Los changes #21/#22 agregan inventario, compra simulada idempotente, órdenes y tickets con tests de concurrencia PostgreSQL. Ver [contratos](docs/API-ETAPA-I.md), [evidencia de inventario](docs/evidencias/2026-11-23-issue-21-inventario.md) y [evidencia de compra](docs/evidencias/2026-11-23-issue-22-compra.md). Pendientes de revisión/merge: PRs [#23](https://github.com/CipollaLucas/ticketing-tp/pull/23) y [#24](https://github.com/CipollaLucas/ticketing-tp/pull/24). No se declara cerrada toda la fase: arquitectura física de microservicios, consolidación de changes por etapa e integración de UI deben evaluarse con el equipo.
+**Etapa I — Core implementado e integrado; UAT final del frontend funcional pendiente de aceptación.**
+Identidad y roles, eventos, inventario de zonas/asientos, compra simulada idempotente, tickets y catálogo React real. En **Operar ticketera** se ofrecen ingreso, creación y publicación de eventos, configuración de inventario, compra simulada y consulta de tickets.
+
+En PostgreSQL local: **146 tests aprobados**, cero omisiones. La UAT manual del backend confirmó idempotencia y rechazo de sobreventa. Sin pagos reales.
+
+Ver [guía de demo](docs/ETAPA-I-DEMO-GUIA.md), [entrega Etapa I](docs/ENTREGA-ETAPA-I.md) y [contratos API](docs/API-ETAPA-I.md). Etapa II (recomendación/caché) sin iniciar.
 
 ## Ejecutar en local (Docker Desktop)
 ```bash
@@ -13,7 +18,7 @@ docker compose exec backend alembic upgrade head
 ```
 En Windows PowerShell: `Copy-Item .env.example .env`.
 
-- Frontend: http://localhost:5173
+- Frontend: http://localhost:5173 (usar **Operar ticketera**)
 - API: http://localhost:8000/api/v1
 - Swagger: http://localhost:8000/docs
 - Health DB: http://localhost:8000/health
@@ -42,4 +47,4 @@ Ver `docs/PLAN-EQUIPO.md`, `docs/ADR-0001.md`, `docs/BITACORA.md` y `CONTRIBUTE.
 - Backend en un proceso: la separación real en microservicios y la estrategia de consistencia se definirán en changes posteriores.
 - Auditoría HTTP a logs sin credenciales; autenticación Bearer y roles disponibles en esta rama.
 - Alembic head 0004_purchasing crea identidad, eventos, inventario, órdenes y tickets. Publicar sin zonas da visibilidad; comprar requiere inventario y evento futuro.
-- Changes OpenSpec: [ticket-inventory](openspec/changes/ticket-inventory/proposal.md) y [ticket-purchasing](openspec/changes/ticket-purchasing/proposal.md). No archivar antes de aprobación/CI/merge.
+- Changes OpenSpec: [ticket-inventory](openspec/changes/ticket-inventory/proposal.md), [ticket-purchasing](openspec/changes/ticket-purchasing/proposal.md) y [stage-i-functional-web](openspec/changes/stage-i-functional-web/proposal.md). Archivar tras UAT final.
