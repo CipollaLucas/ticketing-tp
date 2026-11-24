@@ -54,3 +54,23 @@ class SqlAlchemyEventReader:
             for row in rows
         ]
         return records, total
+
+
+class SqlAlchemyDraftWriter:
+    """Transactional outbound adapter used by the draft creation use case."""
+
+    def __init__(self, session: Session):
+        self.session = session
+
+    def add(self, event: EventRecord) -> None:
+        self.session.add(EventRow(
+            id=event.id, owner_id=event.owner_id, name=event.name,
+            description=event.description, venue=event.venue,
+            start_at=event.start_at, end_at=event.end_at, status=event.status,
+        ))
+
+    def commit(self) -> None:
+        self.session.commit()
+
+    def rollback(self) -> None:
+        self.session.rollback()
