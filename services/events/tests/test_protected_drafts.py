@@ -1,6 +1,6 @@
 """HTTP authorization proof using the real Events SQLite adapter in isolation."""
 from datetime import UTC, datetime, timedelta
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -80,7 +80,7 @@ def test_protected_draft_creates_owned_record(ctx):
     assert data["owner_id"] == str(OWNER) and data["status"] == "draft"
     assert identity.calls == 1
     with Session(engine) as db:
-        row = db.get(EventRow, data["id"])
+        row = db.get(EventRow, UUID(data["id"]))
         assert row is not None and row.owner_id == OWNER
 
 
