@@ -1,6 +1,15 @@
 # Opt-in preview. Existing backend and DB remain untouched.
 # docker compose -f docker-compose.yml -f docker-compose.identity.yml --profile identity up -d --build
 services:
+  backend:
+    # Only with the opt-in Identity overlay: secrets stay server-side.
+    environment:
+      IDENTITY_SERVICE_URL: http://identity:8001
+      IDENTITY_INTERNAL_TOKEN: ${IDENTITY_INTERNAL_TOKEN:?Define a random 32+ character IDENTITY_INTERNAL_TOKEN}
+    depends_on:
+      identity:
+        condition: service_healthy
+
   identity-db:
     image: postgres:16-alpine
     profiles: ["identity"]
