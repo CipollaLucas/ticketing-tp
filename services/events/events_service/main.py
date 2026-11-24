@@ -11,9 +11,11 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from events_service.application import public_catalog
+from events_service.commands import router as protected_router
 from events_service.persistence import SqlAlchemyEventReader, engine
 
 app = FastAPI(title="Ticketing Events Service (Preview)", version="0.1.0")
+app.include_router(protected_router)
 
 
 def session_scope():
