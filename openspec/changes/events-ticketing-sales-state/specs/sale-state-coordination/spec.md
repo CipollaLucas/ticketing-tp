@@ -53,3 +53,9 @@ Identity, Events and Ticketing SHALL not share a SQLAlchemy session, schema owne
 ### Requirement: Test gates before cutover
 
 The system MUST have integration tests with independent PostgreSQL stores, real HTTP service authentication, lock races (both orders), timeouts, retries, stale versions, crashes and replay behavior before enabling publication/unpublication or routing purchases to H4.
+
+#### Scenario: cutover blocked until integration evidence passes
+- GIVEN independently deployed Events and Ticketing services with separate PostgreSQL stores
+- WHEN the team evaluates enabling remote publication, unpublication or H4 purchase routing
+- THEN the test suite MUST demonstrate both orders of the purchase/close lock race, authenticated internal HTTP, timeout and retry handling, stale-version rejection, crash recovery and idempotent replay
+- AND the rollout MUST remain disabled if any required integration test fails or is not executed.
