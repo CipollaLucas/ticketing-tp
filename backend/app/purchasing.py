@@ -12,7 +12,10 @@ from app.auth import CurrentUser, Db, StrictRequest, require_owner_or_admin
 from app.events import Limit, Offset, utc
 from app.models import Event, Order, OrderItem, Role, Seat, Ticket, User, Zone
 from app.ticketing_core.domain.purchase import (
-    PurchaseIntent, PurchaseKeyConflict, TicketSelection, assert_replay_compatible,
+    PurchaseIntent,
+    PurchaseKeyConflict,
+    TicketSelection,
+    assert_replay_compatible,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["Purchasing"])
