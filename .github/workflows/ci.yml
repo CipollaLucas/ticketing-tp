@@ -157,3 +157,54 @@ jobs:
         run: |
           test -z "$(git ls-files backups)"
           git status --short
+
+  events:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: events-ci-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://postgres:events-ci-only@localhost:5432/postgres
+      TEST_POSTGRES_URL: postgresql+psycopg://postgres:events-ci-only@localhost:5432/postgres
+    defaults:
+      run:
+        working-directory: services/events
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e '.[dev]'
+      - run: ruff check .
+      - run: mypy events_service
+      - run: pytest -q -rs
+      - run: alembic upgrade head
+      - run: alembic current
+      - name: Probe independent health and catalog
+        run: |
+          uvicorn events_service.main:app --host 127.0.0.1 --port 8002 > /tmp/events.log 2>&1 &
+          python - <<'PY'
+          import json, time, urllib.request
+          for _ in range(30):
+              try:
+                  with urllib.request.urlopen('http://127.0.0.1:8002/health') as resp:
+                      assert json.load(resp)['status'] == 'ok'
+                  with urllib.request.urlopen('http://127.0.0.1:8002/api/v1/events') as resp:
+                      assert json.load(resp)['total'] == 0
+                  break
+              except Exception:
+                  time.sleep(1)
+          else:
+              raise SystemExit('Events service health/catalog not ready')
+          PY
+      - run: docker build -t ticketing-events-ci .
+        working-directory: services/events
