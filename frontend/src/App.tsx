@@ -127,7 +127,7 @@ export default function App() {
   return (
     <div className="app">
       <a className="skip-link" href="#page-content">Ir al contenido</a>
-      <div className="preview-banner"><span className="preview-dot" /> {isDemo ? 'MODO DEMOSTRACIÓN · DATOS FICTICIOS · SIN COMPRAS NI SESIONES REALES' : 'ETAPA I · CATÁLOGO CONECTADO · COMPRA SIMULADA DISPONIBLE EN OPERAR TICKETERA'}</div>
+      <div className="preview-banner"><span className="preview-dot" /> {isDemo ? 'MODO DEMOSTRACIÓN · DATOS FICTICIOS · SIN COMPRAS NI SESIONES REALES' : 'ETAPA I · CATÁLOGO REAL CONECTADO · COMPRA SIMULADA EN OPERAR TICKETERA'}</div>
       <header className="site-header">
         <button className="brand" type="button" onClick={() => navigate('catalog')}>ticketing<span className="brand-mark">.</span><span className="brand-suffix">/ tp</span></button>
         <nav aria-label="Navegación principal">
@@ -199,7 +199,7 @@ export default function App() {
 
         {page === 'admin' && <section className="inner-page"><p className="eyebrow">ADMINISTRACIÓN / VISTA SIMULADA</p><h1 className="inner-title">Todo en<br /><em>su lugar.</em></h1><p className="page-intro">La navegación no concede permisos. La API verificará los roles reales.</p><div className="form-panel admin-card"><span className="panel-number">GESTIÓN DE USUARIOS</span><h2>Roles y permisos</h2><label>Usuario de ejemplo<input readOnly value="usuario_demo" /></label><label>Rol a asignar<select defaultValue="customer"><option value="customer">Cliente</option><option value="event_owner">Organizador</option><option value="administrator">Administrador</option></select></label><button className="btn btn-dark" onClick={() => demoAction('El cambio de rol')}>Simular cambio de rol ↗</button></div></section>}
       </main>
-      <footer><strong>ticketing<span className="brand-mark">.</span></strong><span>Trabajo práctico · Tópicos II 2026</span><span>Diseño de Etapa I / Datos ficticios</span></footer>
+      <footer><strong>ticketing<span className="brand-mark">.</span></strong><span>Trabajo práctico · Tópicos II 2026</span><span>{isDemo ? 'Vista de demostración / Datos ficticios' : 'Etapa I / Backend conectado / Sin pago real'}</span></footer>
     </div>
   );
 }
