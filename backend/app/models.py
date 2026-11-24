@@ -126,7 +126,7 @@ class Order(Base):
         CheckConstraint("status = 'confirmed'", name="valid_order_status"),
     )
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    customer_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    customer_id: Mapped[UUID] = mapped_column(Uuid, index=True)
     event_id: Mapped[UUID] = mapped_column(ForeignKey("events.id"), index=True)
     idempotency_key: Mapped[str] = mapped_column(String(128))
     request_hash: Mapped[str] = mapped_column(String(64))
