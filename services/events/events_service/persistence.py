@@ -56,6 +56,27 @@ class SqlAlchemyEventReader:
         return records, total
 
 
+    def by_owner(
+        self, owner_id: UUID | None, limit: int, offset: int,
+    ) -> tuple[list[EventRecord], int]:
+        clauses = [EventRow.owner_id == owner_id] if owner_id is not None else []
+        total = self.session.scalar(
+            select(func.count()).select_from(EventRow).where(*clauses)
+        ) or 0
+        rows = self.session.scalars(
+            select(EventRow).where(*clauses)
+            .order_by(EventRow.start_at, EventRow.id).offset(offset).limit(limit)
+        ).all()
+        return [
+            EventRecord(
+                id=row.id, owner_id=row.owner_id, name=row.name,
+                description=row.description, venue=row.venue, start_at=row.start_at,
+                end_at=row.end_at, status=row.status,
+            )
+            for row in rows
+        ], total
+
+
 class SqlAlchemyDraftWriter:
     """Transactional outbound adapter used by the draft creation use case."""
 
