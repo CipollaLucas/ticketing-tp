@@ -1,0 +1,33 @@
+# Opt-in H4 only. Existing Legacy, Identity and Events volumes remain untouched.
+services:
+  ticketing-db:
+    image: postgres:16-alpine
+    profiles: ["ticketing"]
+    environment:
+      POSTGRES_USER: ticketing
+      POSTGRES_PASSWORD: ${TICKETING_DB_PASSWORD:-local-ticketing-only}
+      POSTGRES_DB: ticketing
+    volumes:
+      - ticketing_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ticketing -d ticketing"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  ticketing:
+    build: ./services/ticketing
+    profiles: ["ticketing"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://ticketing:${TICKETING_DB_PASSWORD:-local-ticketing-only}@ticketing-db:5432/ticketing
+    depends_on:
+      ticketing-db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8003:8003"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8003/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+volumes:
+  ticketing_postgres_data:
