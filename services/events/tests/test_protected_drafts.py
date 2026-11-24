@@ -144,3 +144,80 @@ def test_invalid_future_date_never_writes(ctx):
     )
     assert response.status_code == 422
     assert count(engine) == 0
+
+
+def test_owner_list_sees_own_drafts_only(ctx):
+    client, engine, _ = ctx
+    other_owner = uuid4()
+    now = datetime.now(UTC) + timedelta(days=3)
+    with Session(engine) as db:
+        db.add(EventRow(
+            id=uuid4(), owner_id=other_owner, name="Other person's draft",
+            description="Private", venue="Hall", start_at=now,
+            end_at=now + timedelta(hours=2), status="draft",
+        ))
+        db.commit()
+    headers = {"Authorization": "Bearer remote-access-token"}
+    create = client.post("/api/v1/events", headers=headers, json=payload())
+    assert create.status_code == 201
+    listing = client.get("/api/v1/owner/events", headers=headers)
+    assert listing.status_code == 200, listing.text
+    assert listing.headers["cache-control"] == "no-store"
+    assert listing.json()["total"] == 1
+    assert listing.json()["items"][0]["owner_id"] == str(OWNER)
+    assert listing.json()["items"][0]["status"] == "draft"
+
+
+def test_admin_listing_sees_all_events(ctx):
+    client, engine, identity = ctx
+    identity.role = "administrator"
+    now = datetime.now(UTC) + timedelta(days=3)
+    with Session(engine) as db:
+        for owner_id in (OWNER, uuid4()):
+            db.add(EventRow(
+                id=uuid4(), owner_id=owner_id, name="Any draft",
+                description="Private", venue="Hall", start_at=now,
+                end_at=now + timedelta(hours=2), status="draft",
+            ))
+        db.commit()
+    response = client.get(
+        "/api/v1/owner/events",
+        headers={"Authorization": "Bearer remote-access-token"},
+    )
+    assert response.status_code == 200
+    assert response.json()["total"] == 2
+
+
+@pytest.mark.parametrize("failure,status", [
+    (IdentityUnauthorized("revoked"), 401),
+    (IdentityUnavailable("down"), 503),
+])
+def test_owner_listing_fails_closed(ctx, failure, status):
+    client, _, identity = ctx
+    identity.failure = failure
+    response = client.get(
+        "/api/v1/owner/events",
+        headers={"Authorization": "Bearer remote-access-token"},
+    )
+    assert response.status_code == status
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_customer_cannot_list_private_events(ctx):
+    client, _, identity = ctx
+    identity.role = "customer"
+    response = client.get(
+        "/api/v1/owner/events",
+        headers={"Authorization": "Bearer remote-access-token"},
+    )
+    assert response.status_code == 403
+
+
+def test_owner_listing_preview_disabled(ctx, monkeypatch):
+    client, _, _ = ctx
+    monkeypatch.setattr(settings, "protected_drafts_enabled", False)
+    response = client.get(
+        "/api/v1/owner/events",
+        headers={"Authorization": "Bearer remote-access-token"},
+    )
+    assert response.status_code == 404

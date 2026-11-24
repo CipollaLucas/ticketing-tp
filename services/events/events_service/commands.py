@@ -2,11 +2,12 @@
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
+from events_service.application import owned_events
 from events_service.drafts import DraftInput, create_draft
 from events_service.identity import (
     HttpIdentityAdapter,
@@ -14,7 +15,7 @@ from events_service.identity import (
     IdentityUnauthorized,
     IdentityUnavailable,
 )
-from events_service.persistence import SqlAlchemyDraftWriter
+from events_service.persistence import SqlAlchemyDraftWriter, SqlAlchemyEventReader
 from events_service.settings import settings
 
 router = APIRouter(prefix="/api/v1", tags=["Events protected preview"])
@@ -98,4 +99,55 @@ def create_event(
         "start_at": event.start_at,
         "end_at": event.end_at,
         "status": event.status,
+    }
+
+
+@router.get("/owner/events")
+def owner_events(
+    response: Response,
+    request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
+    verifier: Annotated[IdentityPort, Depends(identity_port)],
+    db: Annotated[Session, Depends(session_scope)],
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    offset: Annotated[int, Query(ge=0)] = 0,
+):
+    """List drafts and published events belonging to the verified organizer.
+
+    Administrators can view all owners; callers cannot inject an owner UUID.
+    This endpoint remains unavailable outside the opt-in H3 preview.
+    """
+    response.headers["Cache-Control"] = "no-store"
+    if not settings.protected_drafts_enabled:
+        raise HTTPException(404, "Not found", headers=NO_STORE)
+    if credentials is None:
+        raise HTTPException(
+            401, "Invalid or expired credentials",
+            headers={**NO_STORE, "WWW-Authenticate": "Bearer"},
+        )
+    try:
+        principal = verifier.introspect(
+            credentials.credentials, request.headers.get("X-Request-ID"),
+        )
+    except IdentityUnauthorized as error:
+        raise HTTPException(
+            401, "Invalid or expired credentials",
+            headers={**NO_STORE, "WWW-Authenticate": "Bearer"},
+        ) from error
+    except IdentityUnavailable as error:
+        raise HTTPException(503, "Identity verification unavailable", headers=NO_STORE) from error
+    if principal.role not in {"event_owner", "administrator"}:
+        raise HTTPException(403, "Event owner role required", headers=NO_STORE)
+    owner_id = None if principal.role == "administrator" else principal.id
+    rows, total = owned_events(SqlAlchemyEventReader(db), owner_id, limit, offset)
+    return {
+        "items": [
+            {
+                "id": row.id, "owner_id": row.owner_id, "name": row.name,
+                "description": row.description, "venue": row.venue,
+                "start_at": row.start_at, "end_at": row.end_at, "status": row.status,
+            }
+            for row in rows
+        ],
+        "total": total, "limit": limit, "offset": offset,
     }
