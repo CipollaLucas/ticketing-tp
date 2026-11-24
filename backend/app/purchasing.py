@@ -10,16 +10,18 @@ from sqlalchemy.exc import IntegrityError
 from app.auth import CurrentUser, Db, StrictRequest
 from app.events import Limit, Offset
 from app.models import Role, User
-from app.ticketing_core.adapters.outbound.sqlalchemy_queries import SqlAlchemyTicketQueries
-from app.ticketing_core.application.queries import (
-    get_my_tickets as query_tickets,
-    get_order as query_order,
-)
 from app.ticketing_core.adapters.outbound.sqlalchemy_purchase import (
     SqlAlchemyPurchaseUnitOfWork,
 )
+from app.ticketing_core.adapters.outbound.sqlalchemy_queries import SqlAlchemyTicketQueries
 from app.ticketing_core.application.ports import PurchaseError
 from app.ticketing_core.application.purchase_tickets import purchase_tickets
+from app.ticketing_core.application.queries import (
+    get_my_tickets as query_tickets,
+)
+from app.ticketing_core.application.queries import (
+    get_order as query_order,
+)
 from app.ticketing_core.domain.purchase import (
     PurchaseIntent,
     PurchaseKeyConflict,
