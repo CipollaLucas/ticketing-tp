@@ -3,5 +3,5 @@
 - [x] Move transaction/locks/SQL into outbound SQLAlchemy adapter.
 - [x] Reduce FastAPI purchase router to HTTP translation and adapter wiring.
 - [x] Add fake-port unit tests for first purchase, replay, conflict and rollback.
-- [ ] Validate OpenSpec strict and CI 4/4 including PostgreSQL concurrency tests.
+- [x] Validate OpenSpec strict and CI 4/4 including PostgreSQL concurrency tests (run 45440465298; 155 tests).
 - [ ] Merge after review and run local full PostgreSQL suite.
