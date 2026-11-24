@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.auth import Db, StrictRequest, require_owner_or_admin
 from app.events import Owner, utc, writable_event
-from app.models import Event, Seat, Zone
+from app.models import Event, Seat, Ticket, Zone
 
 router = APIRouter(prefix="/api/v1", tags=["Inventory"])
 Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
@@ -77,11 +77,13 @@ class InventoryResponse(BaseModel):
 
 def zone_response(zone: Zone, db: Db) -> ZoneResponse:
     seats = db.scalars(select(Seat).where(Seat.zone_id == zone.id).order_by(Seat.label)).all()
+    sold = set(db.scalars(select(Ticket.seat_id).where(
+        Ticket.zone_id == zone.id, Ticket.seat_id.is_not(None))).all())
     return ZoneResponse(
         id=zone.id, name=zone.name, mode=zone.mode, price_minor=zone.price_minor,
         currency=zone.currency, capacity=zone.capacity,
-        available=zone.available if zone.available is not None else len(seats),
-        seats=[SeatResponse(id=s.id, label=s.label) for s in seats],
+        available=zone.available if zone.available is not None else len(seats) - len(sold),
+        seats=[SeatResponse(id=s.id, label=s.label, available=s.id not in sold) for s in seats],
     )
 
 
