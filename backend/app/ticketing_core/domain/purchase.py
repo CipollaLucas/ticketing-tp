@@ -2,9 +2,9 @@
 
 Pure Python: deliberately does not import FastAPI, Pydantic, or SQLAlchemy.
 """
+import json
 from dataclasses import dataclass
 from hashlib import sha256
-import json
 from uuid import UUID
 
 
