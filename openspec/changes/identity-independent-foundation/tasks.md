@@ -1,0 +1,8 @@
+- [x] Define pure Identity domain and application ports.
+- [x] Implement use cases and SQLAlchemy/crypto adapters.
+- [x] Build standalone HTTP endpoints and internal introspection.
+- [x] Add service-owned Alembic and isolated optional Compose profile.
+- [x] Add tests for sessions, roles, revocation, and dependency boundaries.
+- [x] Validate CI (Identity, old PostgreSQL, frontend, Docker and OpenSpec): 5/5 checks passed; 9 Identity tests, 160 legacy backend tests; Alembic 0001_identity head.
+- [ ] Merge only after checks, then manually verify optional Identity Docker startup.
+- [ ] Later PR: route authentication to Identity and migrate ownership/FKs safely.

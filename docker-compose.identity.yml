@@ -1,0 +1,38 @@
+# Opt-in preview. Existing backend and DB remain untouched.
+# docker compose -f docker-compose.yml -f docker-compose.identity.yml --profile identity up -d --build
+services:
+  identity-db:
+    image: postgres:16-alpine
+    profiles: ["identity"]
+    environment:
+      POSTGRES_USER: identity
+      POSTGRES_PASSWORD: ${IDENTITY_DB_PASSWORD:-local-identity-only}
+      POSTGRES_DB: identity
+    volumes:
+      - identity_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U identity -d identity"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  identity:
+    build: ./services/identity
+    profiles: ["identity"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://identity:${IDENTITY_DB_PASSWORD:-local-identity-only}@identity-db:5432/identity
+      SESSION_TTL_SECONDS: 3600
+      IDENTITY_INTERNAL_TOKEN: ${IDENTITY_INTERNAL_TOKEN:?Define a random 32+ character IDENTITY_INTERNAL_TOKEN}
+    depends_on:
+      identity-db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8001:8001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+volumes:
+  identity_postgres_data:
