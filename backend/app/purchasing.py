@@ -1,4 +1,5 @@
 """Atomic simulated purchases; PostgreSQL is the concurrency authority."""
+from datetime import datetime
 from typing import Annotated, Self
 from uuid import UUID
 
