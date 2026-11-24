@@ -41,7 +41,7 @@ def assert_event_migration(engine):
         assert connection.scalar(select(Event.name).where(Event.id == event_id)) == "Concert"
         for invalid in (
             {"status": "invalid"}, {"name": " "}, {"venue": ""},
-            {"end_at": start}, {"owner_id": uuid4()}, {"description": "x" * 5001},
+            {"end_at": start}, {"description": "x" * 5001},
         ):
             with pytest.raises((IntegrityError, DataError)), connection.begin_nested():
                 connection.execute(insert(Event).values(**{**values, "id": uuid4(), **invalid}))

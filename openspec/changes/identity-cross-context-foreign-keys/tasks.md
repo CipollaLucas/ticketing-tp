@@ -1,0 +1,6 @@
+- [x] Identify cross-context users foreign keys.
+- [x] Implement reversible Alembic migration and ORM reference update.
+- [x] Add upgrade/downgrade PostgreSQL and SQLite tests preserving existing IDs.
+- [ ] Validate OpenSpec and full CI including PostgreSQL purchase concurrency.
+- [ ] Approve local legacy DDL separately after backup and quiet window.
+- [ ] Separate PR: remote-auth operational cutover and physical service separation.

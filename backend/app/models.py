@@ -61,7 +61,7 @@ class Event(Base):
     )
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    owner_id: Mapped[UUID] = mapped_column(Uuid)
     name: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(String(5000))
     venue: Mapped[str] = mapped_column(String(300))
@@ -126,7 +126,7 @@ class Order(Base):
         CheckConstraint("status = 'confirmed'", name="valid_order_status"),
     )
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    customer_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    customer_id: Mapped[UUID] = mapped_column(Uuid, index=True)
     event_id: Mapped[UUID] = mapped_column(ForeignKey("events.id"), index=True)
     idempotency_key: Mapped[str] = mapped_column(String(128))
     request_hash: Mapped[str] = mapped_column(String(64))
