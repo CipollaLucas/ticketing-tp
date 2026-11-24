@@ -1,0 +1,7 @@
+- [x] Audit legacy User, Events and Orders UUID references and Identity schema.
+- [x] Build an offline, dry-run-by-default importer with source fingerprint and conflict detection.
+- [x] Preserve UUIDs and password hashes but never copy AuthSession tokens.
+- [x] Add tests for dry-run, apply, changed source, conflict, idempotence, unknown roles and same-DB rejection.
+- [ ] CI validates new tests and strict OpenSpec.
+- [ ] Manual dry-run in Docker against the two local demo databases, without applying.
+- [ ] Separate PR: migrate schema FKs and application authorization after a backup/restore and controlled cutover.

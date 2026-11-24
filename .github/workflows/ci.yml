@@ -19,6 +19,7 @@ jobs:
       - run: npx --yes @fission-ai/openspec@2.1.1 validate ticketing-hexagonal-inventory-queries --strict
       - run: npx --yes @fission-ai/openspec@2.1.1 validate identity-independent-foundation --strict
       - run: npx --yes @fission-ai/openspec@2.1.1 validate identity-remote-introspection --strict
+      - run: npx --yes @fission-ai/openspec@2.1.1 validate identity-backfill-preflight --strict
   backend:
     runs-on: ubuntu-latest
     services:
