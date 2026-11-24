@@ -22,6 +22,7 @@ from app.ticketing_core.application.identity import (
 )
 
 router = APIRouter(prefix="/api/v1", tags=["Identity cutover (preview)"])
+NO_STORE = {"Cache-Control": "no-store"}
 bearer = HTTPBearer(auto_error=False)
 
 
@@ -38,14 +39,14 @@ def identity_adapter() -> HttpIdentityAdapter | None:
     if not settings.identity_canary_enabled:
         return None
     if not settings.identity_service_url or not settings.identity_internal_token:
-        raise HTTPException(503, "Identity verification is not configured")
+        raise HTTPException(503, "Identity verification is not configured", headers=NO_STORE)
     try:
         return HttpIdentityAdapter(
             settings.identity_service_url, settings.identity_internal_token,
             timeout_seconds=settings.identity_timeout_seconds,
         )
     except ValueError as error:
-        raise HTTPException(503, "Identity verification is not configured") from error
+        raise HTTPException(503, "Identity verification is not configured", headers=NO_STORE) from error
 
 
 @router.get("/identity/canary", response_model=CanaryResponse)
@@ -58,13 +59,13 @@ def identity_canary(
     """No mutation and no fallback to a legacy session on failed introspection."""
     response.headers["Cache-Control"] = "no-store"
     if not settings.identity_canary_enabled:
-        raise HTTPException(404, "Not found")
+        raise HTTPException(404, "Not found", headers=NO_STORE)
     if verifier is None:
-        raise HTTPException(503, "Identity verification is not configured")
+        raise HTTPException(503, "Identity verification is not configured", headers=NO_STORE)
     if credentials is None:
         raise HTTPException(
             401, "Invalid or expired credentials",
-            headers={"WWW-Authenticate": "Bearer"},
+            headers={**NO_STORE, "WWW-Authenticate": "Bearer"},
         )
     try:
         principal = authenticate_remote(
@@ -73,10 +74,10 @@ def identity_canary(
     except IdentityUnauthorized as error:
         raise HTTPException(
             401, "Invalid or expired credentials",
-            headers={"WWW-Authenticate": "Bearer"},
+            headers={**NO_STORE, "WWW-Authenticate": "Bearer"},
         ) from error
     except IdentityUnavailable as error:
-        raise HTTPException(503, "Identity verification unavailable") from error
+        raise HTTPException(503, "Identity verification unavailable", headers=NO_STORE) from error
 
     # Preserve legacy foreign keys and record ownership. This is diagnostic
     # only: it does not confer any right to mutate or purchase.
@@ -85,7 +86,7 @@ def identity_canary(
         legacy.username != principal.username
         or legacy.role != principal.role
     ):
-        raise HTTPException(409, "Identity and Legacy accounts are not synchronized")
+        raise HTTPException(409, "Identity and Legacy accounts are not synchronized", headers=NO_STORE)
     return CanaryResponse(
         id=principal.id, username=principal.username,
         role=principal.role, identity_verified=True, legacy_uuid_role_match=True,
