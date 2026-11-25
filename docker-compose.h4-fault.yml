@@ -1,0 +1,45 @@
+# ONLY for disposable H4 lost-ACK fault-injection UAT.
+# Overlay must NOT be included in H5, standard Compose, or any production deployment.
+services:
+  h3-events:
+    environment:
+      TICKETING_SERVICE_URL: http://h4-fault-proxy:8004
+    depends_on:
+      h4-fault-proxy:
+        condition: service_healthy
+
+  h4-fault-proxy:
+    build: ./services/events
+    environment:
+      H4_FAULT_UPSTREAM: http://h4-ticketing:8003
+      H4_DISPOSABLE_UAT: "yes"
+    depends_on:
+      h4-ticketing:
+        condition: service_healthy
+    entrypoint: ["python", "-u", "h4_fault_proxy.py"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s=socket.create_connection(('127.0.0.1',8004),2); s.close()"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+
+  h4-fault-recovery-smoke:
+    build: ./services/events
+    environment:
+      DATABASE_URL: postgresql+psycopg://h3_events:h3-local-test-only@h3-events-db:5432/h3_events_test
+      H4_DISPOSABLE_UAT: "yes"
+      H3_IDENTITY_URL: http://h3-identity:8001
+      H3_EVENTS_URL: http://h3-events:8002
+      H4_TICKETING_URL: http://h4-ticketing:8003
+      H4_SALES_TOKEN: ${H4_SALES_TOKEN:?Set random H4_SALES_TOKEN}
+      H3_TEST_PASSWORD: ${H3_TEST_PASSWORD:?Set random H3_TEST_PASSWORD}
+    depends_on:
+      h3-identity:
+        condition: service_healthy
+      h3-events:
+        condition: service_healthy
+      h4-ticketing:
+        condition: service_healthy
+      h4-fault-proxy:
+        condition: service_healthy
+    entrypoint: ["python", "h4_fault_recovery_smoke.py"]
