@@ -26,8 +26,8 @@ from events_service.persistence import (
 )
 from events_service.provision_http import HttpClosedGateProvisioner
 from events_service.provisioning import ClosedGateProvisionPort, provision_verified_draft
-from events_service.publish_coordinator import publish_via_ticketing
 from events_service.publication import PublicationRejected
+from events_service.publish_coordinator import publish_via_ticketing
 from events_service.sales_http import HttpTicketingGateAdapter
 from events_service.sales_port import SaleGatePort, SaleGateRejected, SaleGateUnavailable
 from events_service.settings import settings
