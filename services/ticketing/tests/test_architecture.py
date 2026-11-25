@@ -6,7 +6,7 @@ from pathlib import Path
 def test_domain_and_application_have_no_infrastructure_imports():
     root = Path(__file__).resolve().parents[1] / "ticketing_service"
     forbidden = ("fastapi", "sqlalchemy", "pydantic", "identity", "events_service")
-    for filename in ("domain.py", "application.py"):
+    for filename in ("domain.py", "application.py", "inventory.py"):
         tree = ast.parse((root / filename).read_text())
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and node.module:
