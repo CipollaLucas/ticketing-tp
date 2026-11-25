@@ -71,10 +71,41 @@ def main() -> None:
         login(page, "h3customer", password)
         expect(page.locator(".core-identity")).to_contain_text("customer")
         page.get_by_role("button", name="Eventos y compra").click()
-        page.get_by_role("button", name="Actualizar catálogo").click()
+        # Distinguish a backend catalog problem from a stale React render.
+        public_catalog = page.request.get(BASE + "/api/v1/events?limit=100&offset=0")
+        assert public_catalog.status == 200, (
+            f"Gateway public catalog returned {public_catalog.status}"
+        )
+        catalog_items = public_catalog.json()["items"]
+        assert any(item["name"] == name for item in catalog_items), (
+            "Published browser event missing from Gateway public catalog; "
+            f"status=200, returned={len(catalog_items)} events"
+        )
+        refresh_button = page.get_by_role("button", name="Actualizar catálogo")
+        with page.expect_response(
+            lambda response: "/api/v1/events?" in response.url
+            and response.request.method == "GET",
+            timeout=15000,
+        ) as refreshed:
+            refresh_button.click()
+        assert refreshed.value.status == 200, (
+            f"React catalog refresh returned {refreshed.value.status}"
+        )
         event_select = page.get_by_label("Evento", exact=True)
-        expect(event_select.locator("option", has_text=name)).to_have_count(1, timeout=15000)
-        event_select.select_option(label=event_select.locator("option", has_text=name).inner_text())
+        target_option = event_select.locator("option", has_text=name)
+        try:
+            expect(target_option).to_have_count(1, timeout=15000)
+        except AssertionError:
+            page.screenshot(
+                path=str(EVIDENCE / "customer-catalog-failure.png"),
+                full_page=True,
+            )
+            visible_options = event_select.locator("option").all_text_contents()
+            raise AssertionError(
+                "Gateway returned published event but React did not render it. "
+                f"Visible options: {visible_options}"
+            ) from None
+        event_select.select_option(label=target_option.inner_text())
         expect(page.get_by_label("Zona", exact=True)).to_be_visible(timeout=15000)
         page.get_by_label("Zona", exact=True).select_option(
             label=page.get_by_label("Zona", exact=True).locator("option", has_text="H5 General").inner_text()
