@@ -22,17 +22,18 @@ The PR head commits below are verified merged in GitHub, with the cited CI workf
 | Operational rollback runbook | [#98](https://github.com/CipollaLucas/ticketing-tp/pull/98) | `a1272329b184` | [45653150201](https://github.com/CipollaLucas/ticketing-tp/actions/runs/45653150201) |
 | Synthetic post-write abort guard | [#99](https://github.com/CipollaLucas/ticketing-tp/pull/99) | `f9c531e9a491` | [45653893881](https://github.com/CipollaLucas/ticketing-tp/actions/runs/45653893881) |
 | React-to-OpenAPI method/route ownership | [#100](https://github.com/CipollaLucas/ticketing-tp/pull/100) | `46ead9499b22` | [45654732837](https://github.com/CipollaLucas/ticketing-tp/actions/runs/45654732837) |
+| Lost-ACK publish/unpublish recovery (replacement for unmerged #82) | [#103](https://github.com/CipollaLucas/ticketing-tp/pull/103) | `0299fc6de7ec` | [45658053960](https://github.com/CipollaLucas/ticketing-tp/actions/runs/45658053960) |
 | Zone/gate concurrent serialization (replacement) | [#101](https://github.com/CipollaLucas/ticketing-tp/pull/101) | `9ac655a98a95` | [45655559719](https://github.com/CipollaLucas/ticketing-tp/actions/runs/45655559719) |
 
-**Important correction:** Original [PR #92](https://github.com/CipollaLucas/ticketing-tp/pull/92) was never merged. It was closed as superseded; #101 carries the current-main concurrency fix. Do not cite #92 as merged evidence.
+**Important correction:** Original [PR #82](https://github.com/CipollaLucas/ticketing-tp/pull/82) was never merged and was closed as superseded by #103. Original [PR #92](https://github.com/CipollaLucas/ticketing-tp/pull/92) was never merged. It was closed as superseded; #101 carries the current-main concurrency fix. Do not cite #92 as merged evidence.
 
-For CI runs #97, #99, #100 and #101 above, the GitHub Actions job inventory was verified: all 12 jobs had `success`, including `h5-gateway-stage-i`, `h4-three-service-live`, `ticketing`, `events`, `identity`, `frontend`, `backend`, `openspec`, `docker`, `db-backup-restore`, `identity-contract` and `h3-identity-events-contract`.
+For CI runs #97, #99, #100, #101 and #103 above, the GitHub Actions job inventory was verified: all 12 jobs had `success`, including `h5-gateway-stage-i`, `h4-three-service-live`, `ticketing`, `events`, `identity`, `frontend`, `backend`, `openspec`, `docker`, `db-backup-restore`, `identity-contract` and `h3-identity-events-contract`.
 
 ## Three technical challenges from the assignment
 
 ### Prevent duplicate ticket sales
 
-The Ticketing purchase unit of work owns orders, tickets and available inventory in independent PostgreSQL. The Gateway smoke checks the same idempotency key returning a 200 replay with the identical order/ticket and no second stock decrement; concurrent gate/zone transition is tested by replacement #101. This is stronger than a mock-only test, but the broader H4 fault matrix (e.g. intentional lost ACK, concurrent purchase vs unpublish) still needs exact test-to-run mapping before claiming exhaustive scenario coverage.
+The Ticketing purchase unit of work owns orders, tickets and available inventory in independent PostgreSQL. The Gateway smoke checks the same idempotency key returning a 200 replay with the identical order/ticket and no second stock decrement; concurrent gate/zone transition is tested by replacement #101. This is stronger than a mock-only test, but the H4 test suite now includes intentional lost ACK for publish/unpublish (#103) and a real-HTTP purchase-versus-unpublish race. These do not prove an actual TCP disconnect or process death during commit; additional fault scenarios remain outside the demonstrated scope.
 
 ### Independent microservice architecture
 
@@ -48,7 +49,14 @@ Identity, Events and Ticketing audit request ID, method, route, result and elaps
 - **Restart:** #96 verifies continued ticket/order visibility and same-key replay after restarting application containers with DBs still running. No crash-during-commit fault injection is implied.
 - **Abort:** #99 uses a real disposable Ticketing sale but only an **in-memory synthetic Legacy ledger** and a pure safe-abort decision function. It does not switch traffic, perform backfill, or prove a full post-write rollback.
 - **Legacy migration:** copying production users, sessions, events, orders and tickets, reconciliation, payments, RPO/RTO and cutover permission remain outside this architectural implementation and require a separate approved change.
-- **Unverified exact acceptance lines:** exhaustive route/error parity, the complete H4 failure test matrix mapped to exact CI jobs, full end-to-end restore-on-restored-cluster reconciliation and a realistic disposable traffic-switch rollback rehearsal still need evidence or explicit scope disposition.
+- **Unverified exact acceptance lines:** exhaustive route/error parity, unexercised failure modes (actual TCP disconnect, crash-during-commit) and exact per-scenario QA sign-off, full end-to-end restore-on-restored-cluster reconciliation and a realistic disposable traffic-switch rollback rehearsal still need evidence or explicit scope disposition.
+
+
+## PR #103 lost-ACK reconciliation
+
+PR #103 is merged (merge SHA `8e4963dfcadb56920d3c5c17ade29c4751f6192b`). Run [45658053960](https://github.com/CipollaLucas/ticketing-tp/actions/runs/45658053960) is `success` with all twelve jobs successful, including `h4-three-service-live` and `h5-gateway-stage-i`. The dedicated H4-only fault overlay simulates a successful Ticketing gate write whose first acknowledgement is replaced with HTTP 503; the next publish/unpublish call must recover without incrementing gate versions or duplicating commands. The old PR #82 was explicitly closed unmerged after this replacement, and the H5 normal gateway remains isolated from the H4 proxy.
+
+**Not proven:** actual socket termination, partial TCP frames, process crash mid-transaction or operational rollback against a migrated real Legacy database. These omissions must remain visible at acceptance.
 
 ## Technical decision (pending review)
 
