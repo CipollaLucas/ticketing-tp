@@ -51,6 +51,7 @@ def main() -> None:
             base_url=os.environ["H4_TICKETING_URL"], timeout=6, trust_env=False,
         ) as ticketing,
     ):
+        checked(ticketing.get("/health"), 200, "Ticketing health")
         password = os.environ["H3_TEST_PASSWORD"]
         owner = checked(identity.post("/api/v1/auth/login", json={
             "username": "h3owner", "password": password,
