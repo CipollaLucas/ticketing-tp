@@ -55,17 +55,41 @@ def edit_draft(
             raise EditEventError(422, "Provide at least one editable event field")
         if any(value is None for value in patch.changes.values()):
             raise EditEventError(422, "Provide at least one non-null event field")
-        changes = {}
+        # Explicitly typed updates: dynamic **dict expands into incompatible
+        # EventRecord fields under mypy and would obscure the allowed schema.
+        name = current.name
+        description = current.description
+        venue = current.venue
+        start_at = current.start_at
+        end_at = current.end_at
         for key, value in patch.changes.items():
             if key in {"name", "venue", "description"}:
                 if not isinstance(value, str):
                     raise EditEventError(422, "Invalid event metadata")
-                changes[key] = value.strip()
-            elif isinstance(value, datetime):
-                changes[key] = value.astimezone(UTC)
+                normalized = value.strip()
+                if key == "name":
+                    name = normalized
+                elif key == "venue":
+                    venue = normalized
+                else:
+                    description = normalized
+            elif key in {"start_at", "end_at"}:
+                if not isinstance(value, datetime) or value.tzinfo is None:
+                    raise EditEventError(422, "Invalid event dates")
+                try:
+                    normalized_date = value.astimezone(UTC)
+                except OverflowError as error:
+                    raise EditEventError(422, "Invalid event dates") from error
+                if key == "start_at":
+                    start_at = normalized_date
+                else:
+                    end_at = normalized_date
             else:
-                raise EditEventError(422, "Invalid event dates")
-        updated = replace(current, **changes, updated_at=now.astimezone(UTC))
+                raise EditEventError(422, "Invalid event field")
+        updated = replace(
+            current, name=name, description=description, venue=venue,
+            start_at=start_at, end_at=end_at, updated_at=now.astimezone(UTC),
+        )
         if (
             updated.start_at.astimezone(UTC) <= now.astimezone(UTC)
             or updated.end_at.astimezone(UTC) <= updated.start_at.astimezone(UTC)
