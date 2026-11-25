@@ -1,9 +1,12 @@
 """Ticketing-owned DB. No Events or Identity tables, imports or foreign keys."""
+from datetime import UTC, datetime
 from typing import Literal, cast
 from uuid import UUID
 
 from sqlalchemy import (
+    BigInteger,
     CheckConstraint,
+    DateTime,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -97,6 +100,67 @@ class SeatRow(Base):
     zone_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
     mode: Mapped[str] = mapped_column(String(8), nullable=False, default="numbered")
     label: Mapped[str] = mapped_column(String(50), nullable=False)
+
+
+class OrderRow(Base):
+    """Customer and Event UUID references remain outside Ticketing's FK graph."""
+    __tablename__ = "orders"
+    __table_args__ = (
+        UniqueConstraint("customer_id", "idempotency_key", name="uq_order_idempotency"),
+        CheckConstraint("total_minor >= 0", name="valid_order_total"),
+        CheckConstraint("currency IN ('ARS', 'USD', 'EUR')", name="valid_order_currency"),
+        CheckConstraint("status = 'confirmed'", name="valid_order_status"),
+        Index("ix_orders_customer_id", "customer_id"),
+        Index("ix_orders_event_id", "event_id"),
+    )
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
+    customer_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
+    event_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    total_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    status: Mapped[str] = mapped_column(String(10), nullable=False, default="confirmed")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC),
+    )
+
+
+class OrderItemRow(Base):
+    __tablename__ = "order_items"
+    __table_args__ = (
+        UniqueConstraint("order_id", "zone_id", name="uq_item_order_zone"),
+        UniqueConstraint("id", "zone_id", name="uq_item_id_zone"),
+        CheckConstraint("quantity BETWEEN 1 AND 100", name="valid_item_quantity"),
+        CheckConstraint("unit_price_minor >= 0", name="valid_item_price"),
+        CheckConstraint(
+            "subtotal_minor = quantity * unit_price_minor", name="valid_item_subtotal",
+        ),
+        Index("ix_order_items_order_id", "order_id"),
+    )
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
+    order_id: Mapped[UUID] = mapped_column(ForeignKey("orders.id"), nullable=False)
+    zone_id: Mapped[UUID] = mapped_column(ForeignKey("zones.id"), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    unit_price_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    subtotal_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+
+class TicketRow(Base):
+    __tablename__ = "tickets"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["order_item_id", "zone_id"], ["order_items.id", "order_items.zone_id"],
+        ),
+        ForeignKeyConstraint(["seat_id", "zone_id"], ["seats.id", "seats.zone_id"]),
+        CheckConstraint("status = 'valid'", name="valid_ticket_status"),
+        Index("ix_tickets_order_item_id", "order_item_id"),
+    )
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
+    order_item_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
+    zone_id: Mapped[UUID] = mapped_column(ForeignKey("zones.id"), nullable=False)
+    seat_id: Mapped[UUID | None] = mapped_column(Uuid, nullable=True, unique=True)
+    status: Mapped[str] = mapped_column(String(5), nullable=False, default="valid")
 
 
 engine = create_engine(settings.database_url, pool_pre_ping=True)
