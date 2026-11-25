@@ -131,6 +131,11 @@ jobs:
       - name: Verify remote login, token introspection and logout
         run: |
           docker compose -f docker-compose.yml -f docker-compose.identity.yml --profile identity exec -T backend python identity_contract_smoke.py
+      - name: Start isolated Identity-only HTTP gateway preview
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.identity.yml -f docker-compose.identity-gateway-preview.yml --profile identity --profile identity-gateway-preview up -d identity-gateway-preview
+      - name: Test public Stage I auth contract through gateway and fail-closed Events
+        run: python scripts/identity_gateway_preview_smoke.py
 
   db-backup-restore:
     runs-on: ubuntu-latest
