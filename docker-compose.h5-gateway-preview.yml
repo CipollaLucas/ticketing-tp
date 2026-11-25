@@ -2,6 +2,10 @@
 # Do not include docker-compose.yml or a persistent Identity/Events/Ticketing overlay.
 # Run with unique project name and disposable tmpfs DBs.
 services:
+  h3-identity:
+    environment:
+      H5_DISPOSABLE_ADMIN_SEED: "yes"
+
   h5-gateway:
     image: nginx:1.27-alpine
     volumes:
