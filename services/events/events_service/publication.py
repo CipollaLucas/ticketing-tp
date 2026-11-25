@@ -61,12 +61,14 @@ def prepare_publication(
         if actor_role != "administrator" and actor_id != event.owner_id:
             raise PublicationRejected(403, "Resource belongs to another user")
         previous = unit.existing_intent(event_id)
-        if event.status == "published" and previous is not None:
-            if previous.phase == "metadata_published" and (
-                unit.event_revision(event_id) == previous.event_revision
-            ):
-                unit.commit()
-                return previous
+        if (
+            event.status == "published"
+            and previous is not None
+            and previous.phase == "metadata_published"
+            and unit.event_revision(event_id) == previous.event_revision
+        ):
+            unit.commit()
+            return previous
         if event.status != "draft":
             raise PublicationRejected(409, "Event is not a draft")
         if (
