@@ -7,6 +7,9 @@ from uuid import uuid4
 from fastapi import FastAPI, Request
 
 logger = logging.getLogger("ticketing.http")
+logger.setLevel(logging.INFO)
+if not logger.handlers:
+    logger.addHandler(logging.StreamHandler())
 _SAFE_ID = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
 
 
