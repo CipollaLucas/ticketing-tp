@@ -7,7 +7,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
-from events_service.commands import identity_port, session_scope as command_scope
+from events_service.commands import identity_port
+from events_service.commands import session_scope as command_scope
 from events_service.identity import Principal
 from events_service.main import app, session_scope
 from events_service.persistence import Base, EventRow
