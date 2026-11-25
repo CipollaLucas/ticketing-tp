@@ -14,7 +14,7 @@
 - [ ] Add route/security tests: correct upstream, auth forwarding, fail-closed, 404/503, no secrets.
 - [x] Add HTTP bitacora/timing validation across gateway/services (PRs #91, #93; publication trace, not all RPCs).
 - [x] Execute three-role Stage I end-to-end API and React journeys while Legacy is stopped (PRs #90, #94, #95).
-- [ ] Verify oversell/idempotency, purchase-vs-unpublish races, lost ACK/retries, restart recovery and DB restore as separate evidence lines.
+- [x] Verify isolated-UAT oversell/idempotency, purchase-vs-unpublish races, simulated lost ACK/retries, app restart and DB restore as separate evidence lines (H4/H5 CI; #90, #96, #97, #101, #103; see final evidence register). This is not a crash-during-commit or full cluster recovery guarantee.
 - [ ] Produce operational rollback/backfill checklist; validate dry-run on disposable data.
 - [x] Reconcile umbrella migration OpenSpec tasks with actual PR/test evidence (verified CI run register in docs/H5-FINAL-ACCEPTANCE-EVIDENCE.md; remaining work stays open).
 
@@ -29,4 +29,8 @@
 
 See `docs/H5-FINAL-ACCEPTANCE-EVIDENCE.md` for real successful GitHub Actions run IDs, commit SHAs and limitations. PR #92 was not merged; PR #101 replaced and resolved its concurrency fix in current `main`. Completed items above denote only implementation verified in disposable H5 CI, not a production cutover.
 
-**Still unchecked:** exhaustive route/error behavior, the full H4 failure matrix with exact scenario mapping, a realistic separate Legacy cutover/backfill/rollback dry-run, formal QA/technical sign-off, and archive decision. These must be satisfied or explicitly dispositioned in an acceptance review. Real production cutover remains a distinct NO-GO requiring separate approval.
+**Still unchecked:** exhaustive route/error behavior, full post-write Legacy cutover/backfill/rollback dry-run (current #99 simulates only the decision guard), formal QA/technical sign-off, and archive decision. Fault injection #103 tests an artificially lost HTTP ACK, not a TCP disconnect or crash during commit. These must be satisfied or explicitly dispositioned in an acceptance review. Real production cutover remains a distinct NO-GO requiring separate approval.
+
+## Reconciliation update: lost-ACK dependency
+
+PR #82 remained unmerged and was closed as superseded by merged PR #103. Run [45658053960](https://github.com/CipollaLucas/ticketing-tp/actions/runs/45658053960) has twelve successful jobs, including `h4-three-service-live` (simulated lost publish/unpublish acknowledgement after Ticketing commit) and `h5-gateway-stage-i` (without the H4 fault proxy). See `docs/H5-FINAL-ACCEPTANCE-EVIDENCE.md` for accurate limitations. No automation or document may mark production cutover approved.
