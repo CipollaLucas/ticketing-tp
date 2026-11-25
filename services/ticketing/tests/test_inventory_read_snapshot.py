@@ -7,7 +7,12 @@ from sqlalchemy.orm import Session
 
 from ticketing_service.inventory_http import inventory_snapshot
 from ticketing_service.persistence import (
-    Base, OrderItemRow, OrderRow, SeatRow, TicketRow, ZoneRow,
+    Base,
+    OrderItemRow,
+    OrderRow,
+    SeatRow,
+    TicketRow,
+    ZoneRow,
 )
 
 
