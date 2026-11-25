@@ -1,6 +1,6 @@
 """Stage I timestamp shape and persistence through Events-owned adapters."""
 from datetime import UTC, datetime, timedelta
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -89,7 +89,7 @@ def test_public_catalog_detail_and_protected_draft_include_legacy_timestamps(mon
             assert all(set(row) == EXPECTED for row in listing.json()["items"])
             assert any(row["id"] == draft["id"] for row in listing.json()["items"])
             with Session(engine) as db:
-                persisted = db.get(EventRow, draft["id"])
+                persisted = db.get(EventRow, UUID(draft["id"]))
                 assert persisted is not None and persisted.created_at == persisted.updated_at
     finally:
         app.dependency_overrides.clear()
