@@ -1,4 +1,5 @@
 """Read-only public inventory adapter; independent Ticketing DB and Events authority."""
+
 from typing import Annotated
 from uuid import UUID
 
@@ -51,8 +52,10 @@ class PublishedEventVerifier:
     def require_published(self, event_id: UUID) -> None:
         try:
             with httpx.Client(
-                timeout=settings.purchase_timeout_seconds, transport=self.transport,
-                follow_redirects=False, trust_env=False,
+                timeout=settings.purchase_timeout_seconds,
+                transport=self.transport,
+                follow_redirects=False,
+                trust_env=False,
             ) as client:
                 response = client.get(self.url + f"/api/v1/events/{event_id}")
         except httpx.RequestError as error:
@@ -81,29 +84,50 @@ def inventory_snapshot(db: Session, event_id: UUID) -> InventoryResponse:
         select(ZoneRow).where(ZoneRow.event_id == event_id).order_by(ZoneRow.name, ZoneRow.id)
     ).all()
     zone_ids = [zone.id for zone in zones if zone.mode == "numbered"]
-    seats = db.scalars(
-        select(SeatRow).where(SeatRow.zone_id.in_(zone_ids)).order_by(SeatRow.label, SeatRow.id)
-    ).all() if zone_ids else []
-    sold = set(db.scalars(
-        select(TicketRow.seat_id).join(
-            OrderItemRow, TicketRow.order_item_id == OrderItemRow.id,
-        ).where(TicketRow.seat_id.is_not(None), OrderItemRow.zone_id.in_(zone_ids))
-    ).all()) if zone_ids else set()
+    seats = (
+        db.scalars(
+            select(SeatRow).where(SeatRow.zone_id.in_(zone_ids)).order_by(SeatRow.label, SeatRow.id)
+        ).all()
+        if zone_ids
+        else []
+    )
+    sold = (
+        set(
+            db.scalars(
+                select(TicketRow.seat_id)
+                .join(
+                    OrderItemRow,
+                    TicketRow.order_item_id == OrderItemRow.id,
+                )
+                .where(TicketRow.seat_id.is_not(None), OrderItemRow.zone_id.in_(zone_ids))
+            ).all()
+        )
+        if zone_ids
+        else set()
+    )
     by_zone: dict[UUID, list[SeatResponse]] = {zone_id: [] for zone_id in zone_ids}
     for seat in seats:
         by_zone[seat.zone_id].append(
             SeatResponse(id=seat.id, label=seat.label, available=seat.id not in sold)
         )
-    return InventoryResponse(event_id=event_id, zones=[
-        ZoneResponse(
-            id=zone.id, name=zone.name, mode=zone.mode, price_minor=zone.price_minor,
-            currency=zone.currency, capacity=zone.capacity,
-            available=zone.available if zone.available is not None else sum(
-                int(seat.available) for seat in by_zone[zone.id]
-            ),
-            seats=by_zone.get(zone.id, []),
-        ) for zone in zones
-    ])
+    return InventoryResponse(
+        event_id=event_id,
+        zones=[
+            ZoneResponse(
+                id=zone.id,
+                name=zone.name,
+                mode=zone.mode,
+                price_minor=zone.price_minor,
+                currency=zone.currency,
+                capacity=zone.capacity,
+                available=zone.available
+                if zone.available is not None
+                else sum(int(seat.available) for seat in by_zone[zone.id]),
+                seats=by_zone.get(zone.id, []),
+            )
+            for zone in zones
+        ],
+    )
 
 
 @router.get("/events/{event_id}/inventory", response_model=InventoryResponse)

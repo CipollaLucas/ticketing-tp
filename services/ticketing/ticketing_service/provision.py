@@ -3,6 +3,7 @@
 The caller must have verified that the event UUID exists and is an authorized,
 committed Events record. There is deliberately no open operation in this use case.
 """
+
 from typing import Protocol
 from uuid import UUID
 

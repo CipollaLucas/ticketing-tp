@@ -4,6 +4,7 @@ Legacy refuses unpublish if any confirmed order exists. Checking order count
 before the lock would race with a new purchase; both checks must share the
 same Ticketing transaction as the sale-gate transition.
 """
+
 from typing import Protocol
 from uuid import UUID
 
@@ -24,7 +25,8 @@ class CloseWithoutSalesUnit(Protocol):
 
 
 def close_gate_without_sales(
-    command: GateCommand, unit: CloseWithoutSalesUnit,
+    command: GateCommand,
+    unit: CloseWithoutSalesUnit,
 ) -> GateState:
     """Idempotent CAS close; purchase and close serialize on same gate row.
 

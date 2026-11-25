@@ -1,4 +1,5 @@
 """Pure transition and transactional port tests."""
+
 from uuid import uuid4
 
 import pytest
@@ -48,10 +49,16 @@ def test_gate_opens_and_closes_with_versions_and_command_replay():
     assert unit.commits == 2
 
 
-@pytest.mark.parametrize("action,version,revision", [
-    ("open", 1, 1), ("open", 0, 0), ("close", 0, 1),
-    ("open", -1, 1), ("open", 0, -1),
-])
+@pytest.mark.parametrize(
+    "action,version,revision",
+    [
+        ("open", 1, 1),
+        ("open", 0, 0),
+        ("close", 0, 1),
+        ("open", -1, 1),
+        ("open", 0, -1),
+    ],
+)
 def test_invalid_commands_preserve_gate(action, version, revision):
     event = uuid4()
     unit = MemoryUnit(event)

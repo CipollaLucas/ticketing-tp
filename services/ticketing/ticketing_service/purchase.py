@@ -1,4 +1,5 @@
 """Pure purchase identity and validation; canonical hash matches Legacy."""
+
 import json
 from dataclasses import dataclass
 from hashlib import sha256

@@ -1,4 +1,5 @@
 """Opt-in zone configuration on Ticketing's local database, authorized by Events."""
+
 from typing import Annotated, Literal, Self
 from uuid import UUID, uuid4
 
@@ -78,15 +79,20 @@ class DraftOwnerVerifier:
         self.transport = transport
 
     def require_owner_draft(
-        self, event_id: UUID, access_token: str, request_id: str | None,
+        self,
+        event_id: UUID,
+        access_token: str,
+        request_id: str | None,
     ) -> None:
         headers = {"Authorization": f"Bearer {access_token}"}
         if request_id:
             headers["X-Request-ID"] = request_id
         try:
             with httpx.Client(
-                transport=self.transport, timeout=settings.purchase_timeout_seconds,
-                follow_redirects=False, trust_env=False,
+                transport=self.transport,
+                timeout=settings.purchase_timeout_seconds,
+                follow_redirects=False,
+                trust_env=False,
             ) as client:
                 response = client.get(
                     self.url + f"/api/v1/owner/events/{event_id}/sale-gate-readiness",
@@ -124,8 +130,12 @@ def draft_verifier() -> DraftOwnerVerifier:
 def insert_zone(db: Session, event_id: UUID, payload: ZoneInput) -> ZoneResponse:
     zone_id = uuid4()
     spec = ZoneSpec(
-        id=zone_id, event_id=event_id, name=payload.name, mode=payload.mode,
-        price_minor=payload.price_minor, currency=payload.currency,
+        id=zone_id,
+        event_id=event_id,
+        name=payload.name,
+        mode=payload.mode,
+        price_minor=payload.price_minor,
+        currency=payload.currency,
         capacity=payload.capacity,
         available=payload.capacity if payload.mode == "general" else None,
     )
@@ -134,15 +144,18 @@ def insert_zone(db: Session, event_id: UUID, payload: ZoneInput) -> ZoneResponse
         validate_seat(SeatSpec(uuid4(), zone_id, seat.label))
     # Gate lock serializes local changes against new purchases and gate transitions.
     # If gate does not exist yet the zone stays unsellable until provisioned.
-    gate = db.scalar(
-        select(SaleGateRow).where(SaleGateRow.event_id == event_id).with_for_update()
-    )
+    gate = db.scalar(select(SaleGateRow).where(SaleGateRow.event_id == event_id).with_for_update())
     if gate is not None and gate.state != "closed":
         raise HTTPException(409, "Event sales already open", headers=NO_STORE)
     zone = ZoneRow(
-        id=zone_id, event_id=event_id, name=payload.name, mode=payload.mode,
-        price_minor=payload.price_minor, currency=payload.currency,
-        capacity=payload.capacity, available=spec.available,
+        id=zone_id,
+        event_id=event_id,
+        name=payload.name,
+        mode=payload.mode,
+        price_minor=payload.price_minor,
+        currency=payload.currency,
+        capacity=payload.capacity,
+        available=spec.available,
     )
     db.add(zone)
     rows = [
@@ -154,10 +167,15 @@ def insert_zone(db: Session, event_id: UUID, payload: ZoneInput) -> ZoneResponse
         db.commit()
     except IntegrityError as error:
         db.rollback()
-        raise HTTPException(409, "Zone conflicts with existing inventory", headers=NO_STORE) from error
+        raise HTTPException(
+            409, "Zone conflicts with existing inventory", headers=NO_STORE
+        ) from error
     return ZoneResponse(
-        id=zone_id, name=payload.name, mode=payload.mode,
-        price_minor=payload.price_minor, currency=payload.currency,
+        id=zone_id,
+        name=payload.name,
+        mode=payload.mode,
+        price_minor=payload.price_minor,
+        currency=payload.currency,
         capacity=payload.capacity,
         available=payload.capacity if payload.capacity is not None else len(rows),
         seats=[SeatResponse(id=row.id, label=row.label, available=True) for row in rows],
@@ -179,7 +197,9 @@ def create_zone(
     if credentials is None:
         raise HTTPException(401, "Invalid or expired credentials", headers=NO_STORE)
     verified.require_owner_draft(
-        event_id, credentials.credentials, request.headers.get("X-Request-ID"),
+        event_id,
+        credentials.credentials,
+        request.headers.get("X-Request-ID"),
     )
     result = insert_zone(db, event_id, payload)
     response.headers["Cache-Control"] = "no-store"

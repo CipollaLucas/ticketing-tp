@@ -1,4 +1,5 @@
 """Private no-sales close contract; real Events and purchases remain untouched."""
+
 from uuid import uuid4
 
 import pytest
@@ -18,15 +19,21 @@ SECRET = "test-only-service-credential-32-characters-long"
 @pytest.fixture
 def context(monkeypatch):
     engine = create_engine(
-        "sqlite+pysqlite://", connect_args={"check_same_thread": False},
+        "sqlite+pysqlite://",
+        connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
     Base.metadata.create_all(engine)
     event_id = uuid4()
     with Session(engine) as db:
-        db.add(SaleGateRow(
-            event_id=event_id, state="open", version=1, event_revision=1,
-        ))
+        db.add(
+            SaleGateRow(
+                event_id=event_id,
+                state="open",
+                version=1,
+                event_revision=1,
+            )
+        )
         db.commit()
 
     def session():
@@ -50,8 +57,10 @@ def endpoint(event_id):
 
 def payload():
     return {
-        "command_id": str(uuid4()), "action": "close",
-        "expected_version": 1, "event_revision": 1,
+        "command_id": str(uuid4()),
+        "action": "close",
+        "expected_version": 1,
+        "event_revision": 1,
     }
 
 
@@ -75,11 +84,18 @@ def test_close_without_sales_is_atomic_and_idempotent(context):
 def test_order_prevents_close_and_keeps_gate_open(context):
     client, engine, event_id = context
     with Session(engine) as db:
-        db.add(OrderRow(
-            id=uuid4(), customer_id=uuid4(), event_id=event_id,
-            idempotency_key="test-order", request_hash="a" * 64,
-            total_minor=100, currency="ARS", status="confirmed",
-        ))
+        db.add(
+            OrderRow(
+                id=uuid4(),
+                customer_id=uuid4(),
+                event_id=event_id,
+                idempotency_key="test-order",
+                request_hash="a" * 64,
+                total_minor=100,
+                currency="ARS",
+                status="confirmed",
+            )
+        )
         db.commit()
     result = client.post(endpoint(event_id), headers=headers(), json=payload())
     assert result.status_code == 409

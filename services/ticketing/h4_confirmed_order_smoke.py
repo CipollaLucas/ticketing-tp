@@ -4,6 +4,7 @@ Event is created/published via real Identity and Events HTTP. A purchase is
 committed through Ticketing's protected HTTP purchase API and existing UoW. Events unpublish must return 409 without altering sale gate,
 order, ticket, inventory or public metadata. Never use persistent databases.
 """
+
 import os
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
@@ -29,48 +30,86 @@ def checked(response: httpx.Response, expected: int, step: str) -> dict:
 
 
 def main() -> None:
-    if (
-        engine.url.database != "h4_ticketing_test"
-        or os.environ.get("H4_DISPOSABLE_UAT") != "yes"
-    ):
+    if engine.url.database != "h4_ticketing_test" or os.environ.get("H4_DISPOSABLE_UAT") != "yes":
         raise SystemExit("REFUSED: purchase UAT requires disposable Ticketing PostgreSQL")
     now = datetime.now(UTC)
     start = now + timedelta(days=8)
     with (
         httpx.Client(
-            base_url=os.environ["H3_IDENTITY_URL"], timeout=6, trust_env=False,
+            base_url=os.environ["H3_IDENTITY_URL"],
+            timeout=6,
+            trust_env=False,
         ) as identity,
         httpx.Client(
-            base_url=os.environ["H3_EVENTS_URL"], timeout=6, trust_env=False,
+            base_url=os.environ["H3_EVENTS_URL"],
+            timeout=6,
+            trust_env=False,
         ) as events,
         httpx.Client(
-            base_url=os.environ["H4_TICKETING_URL"], timeout=6, trust_env=False,
+            base_url=os.environ["H4_TICKETING_URL"],
+            timeout=6,
+            trust_env=False,
         ) as ticketing,
     ):
         checked(ticketing.get("/health"), 200, "Ticketing health")
         password = os.environ["H3_TEST_PASSWORD"]
-        owner = checked(identity.post("/api/v1/auth/login", json={
-            "username": "h3owner", "password": password,
-        }), 200, "Owner login")["access_token"]
-        customer = checked(identity.post("/api/v1/auth/login", json={
-            "username": "h3customer", "password": password,
-        }), 200, "Customer login")["access_token"]
-        customer_info = checked(identity.get(
-            "/api/v1/auth/me", headers={"Authorization": f"Bearer {customer}"},
-        ), 200, "Customer identity")
+        owner = checked(
+            identity.post(
+                "/api/v1/auth/login",
+                json={
+                    "username": "h3owner",
+                    "password": password,
+                },
+            ),
+            200,
+            "Owner login",
+        )["access_token"]
+        customer = checked(
+            identity.post(
+                "/api/v1/auth/login",
+                json={
+                    "username": "h3customer",
+                    "password": password,
+                },
+            ),
+            200,
+            "Customer login",
+        )["access_token"]
+        customer_info = checked(
+            identity.get(
+                "/api/v1/auth/me",
+                headers={"Authorization": f"Bearer {customer}"},
+            ),
+            200,
+            "Customer identity",
+        )
         customer_id = UUID(customer_info["id"])
         owner_header = {"Authorization": f"Bearer {owner}"}
-        event = checked(events.post("/api/v1/events", json={
-            "name": "H4 confirmed-sale immutable event",
-            "description": "Real Ticketing purchase before unpublish",
-            "venue": "Disposable fixture only",
-            "start_at": start.isoformat(),
-            "end_at": (start + timedelta(hours=1)).isoformat(),
-        }, headers=owner_header), 201, "Draft creation")
+        event = checked(
+            events.post(
+                "/api/v1/events",
+                json={
+                    "name": "H4 confirmed-sale immutable event",
+                    "description": "Real Ticketing purchase before unpublish",
+                    "venue": "Disposable fixture only",
+                    "start_at": start.isoformat(),
+                    "end_at": (start + timedelta(hours=1)).isoformat(),
+                },
+                headers=owner_header,
+            ),
+            201,
+            "Draft creation",
+        )
         event_id = UUID(event["id"])
-        published = checked(events.post(
-            f"/api/v1/events/{event_id}/publish", json={}, headers=owner_header,
-        ), 200, "Publish")
+        published = checked(
+            events.post(
+                f"/api/v1/events/{event_id}/publish",
+                json={},
+                headers=owner_header,
+            ),
+            200,
+            "Publish",
+        )
         assert published["status"] == "published"
 
         zone_id = uuid4()
@@ -78,11 +117,18 @@ def main() -> None:
             gate = db.get(SaleGateRow, event_id)
             assert gate is not None
             assert (gate.state, gate.version, gate.event_revision) == ("open", 1, 1)
-            db.add(ZoneRow(
-                id=zone_id, event_id=event_id, name="General",
-                mode="general", price_minor=1200, currency="ARS",
-                capacity=3, available=3,
-            ))
+            db.add(
+                ZoneRow(
+                    id=zone_id,
+                    event_id=event_id,
+                    name="General",
+                    mode="general",
+                    price_minor=1200,
+                    currency="ARS",
+                    capacity=3,
+                    available=3,
+                )
+            )
             db.commit()
 
         order_url = f"/api/v1/events/{event_id}/orders"
@@ -91,14 +137,26 @@ def main() -> None:
             "Authorization": f"Bearer {customer}",
             "Idempotency-Key": "h4-real-confirmed-order",
         }
-        assert ticketing.post(
-            order_url, json=order_body, headers=owner_header | {
-                "Idempotency-Key": "owner-is-not-customer",
-            },
-        ).status_code == 403
-        first_order = checked(ticketing.post(
-            order_url, json=order_body, headers=purchase_headers,
-        ), 201, "Customer purchase HTTP")
+        assert (
+            ticketing.post(
+                order_url,
+                json=order_body,
+                headers=owner_header
+                | {
+                    "Idempotency-Key": "owner-is-not-customer",
+                },
+            ).status_code
+            == 403
+        )
+        first_order = checked(
+            ticketing.post(
+                order_url,
+                json=order_body,
+                headers=purchase_headers,
+            ),
+            201,
+            "Customer purchase HTTP",
+        )
         assert UUID(first_order["customer_id"]) == customer_id
         assert first_order["status"] == "confirmed"
         assert first_order["total_minor"] == 2400
@@ -109,14 +167,16 @@ def main() -> None:
 
         response = events.post(
             f"/api/v1/events/{event_id}/unpublish",
-            json={}, headers=owner_header,
+            json={},
+            headers=owner_header,
         )
         assert response.status_code == 409, (
             f"Sold event must reject unpublish: {response.status_code}"
         )
         response_again = events.post(
             f"/api/v1/events/{event_id}/unpublish",
-            json={}, headers=owner_header,
+            json={},
+            headers=owner_header,
         )
         assert response_again.status_code == 409
 
@@ -124,9 +184,7 @@ def main() -> None:
             gate = db.get(SaleGateRow, event_id)
             zone = db.get(ZoneRow, zone_id)
             order = db.get(OrderRow, confirmed_id)
-            actual_tickets = db.scalars(
-                select(TicketRow).where(TicketRow.id.in_(ticket_ids))
-            ).all()
+            actual_tickets = db.scalars(select(TicketRow).where(TicketRow.id.in_(ticket_ids))).all()
             assert gate is not None
             assert (gate.state, gate.version, gate.event_revision) == ("open", 1, 1)
             assert zone is not None and zone.available == 1
@@ -134,16 +192,33 @@ def main() -> None:
             assert len(actual_tickets) == 2
             assert {ticket.id for ticket in actual_tickets} == ticket_ids
             assert all(ticket.status == "valid" for ticket in actual_tickets)
-            assert db.scalar(select(func.count()).select_from(OrderRow).where(
-                OrderRow.event_id == event_id,
-            )) == 1
-        detail = checked(events.get(
-            f"/api/v1/events/{event_id}",
-        ), 200, "Event remains public")
+            assert (
+                db.scalar(
+                    select(func.count())
+                    .select_from(OrderRow)
+                    .where(
+                        OrderRow.event_id == event_id,
+                    )
+                )
+                == 1
+            )
+        detail = checked(
+            events.get(
+                f"/api/v1/events/{event_id}",
+            ),
+            200,
+            "Event remains public",
+        )
         assert detail["status"] == "published"
-        replay = checked(ticketing.post(
-            order_url, json=order_body, headers=purchase_headers,
-        ), 200, "Historical purchase HTTP replay")
+        replay = checked(
+            ticketing.post(
+                order_url,
+                json=order_body,
+                headers=purchase_headers,
+            ),
+            200,
+            "Historical purchase HTTP replay",
+        )
         assert replay["replayed"] is True
         assert UUID(replay["id"]) == confirmed_id
         assert len(replay["tickets"]) == 2
@@ -153,31 +228,52 @@ def main() -> None:
         # correctly stays 409 when sales exist). This creates a closed gate
         # so the HTTP historical replay is tested without new allocations.
         internal = {"X-Internal-Service-Token": os.environ["H4_SALES_TOKEN"]}
-        closed = checked(ticketing.post(
-            f"/api/v1/internal/sales/gates/{event_id}/commands",
-            json={
-                "command_id": str(uuid4()), "action": "close",
-                "expected_version": 1, "event_revision": 1,
-            }, headers=internal,
-        ), 200, "Disposable administrative gate close")
+        closed = checked(
+            ticketing.post(
+                f"/api/v1/internal/sales/gates/{event_id}/commands",
+                json={
+                    "command_id": str(uuid4()),
+                    "action": "close",
+                    "expected_version": 1,
+                    "event_revision": 1,
+                },
+                headers=internal,
+            ),
+            200,
+            "Disposable administrative gate close",
+        )
         assert (closed["state"], closed["version"]) == ("closed", 2)
 
-        after_close = checked(ticketing.post(
-            order_url, json=order_body, headers=purchase_headers,
-        ), 200, "Historical replay after sale gate closed")
+        after_close = checked(
+            ticketing.post(
+                order_url,
+                json=order_body,
+                headers=purchase_headers,
+            ),
+            200,
+            "Historical replay after sale gate closed",
+        )
         assert after_close["replayed"] is True
         assert UUID(after_close["id"]) == confirmed_id
         assert {UUID(t["id"]) for t in after_close["tickets"]} == ticket_ids
         fresh = ticketing.post(
-            order_url, json={"items": [{"zone_id": str(zone_id), "quantity": 1}]},
+            order_url,
+            json={"items": [{"zone_id": str(zone_id), "quantity": 1}]},
             headers=purchase_headers | {"Idempotency-Key": "new-after-closed"},
         )
         assert fresh.status_code == 409, "Closed gate must block new sales"
         with Session(engine) as db:
             assert db.get(ZoneRow, zone_id).available == 1
-            assert db.scalar(select(func.count()).select_from(OrderRow).where(
-                OrderRow.event_id == event_id,
-            )) == 1
+            assert (
+                db.scalar(
+                    select(func.count())
+                    .select_from(OrderRow)
+                    .where(
+                        OrderRow.event_id == event_id,
+                    )
+                )
+                == 1
+            )
 
     print("PASS: Identity, Events and Ticketing purchase over real HTTP with verified customer")
     print("PASS: HTTP unpublish refuses confirmed orders twice with 409")

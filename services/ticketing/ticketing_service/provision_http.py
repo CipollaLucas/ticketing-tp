@@ -4,6 +4,7 @@ Not activated by default. Only an Events service caller (not a browser bearer)
 can invoke this route. Events must independently re-check its own durable
 event and Identity principal inside the eventual provisioning command.
 """
+
 from hmac import compare_digest
 from typing import Annotated, Literal
 from uuid import UUID
@@ -38,7 +39,8 @@ def require_events_provisioner(
     if len(secret) < 32:
         raise HTTPException(503, "Provisioning integration unavailable", headers=NO_STORE)
     if internal_token is None or not compare_digest(
-        internal_token.encode("utf-8"), secret.encode("utf-8"),
+        internal_token.encode("utf-8"),
+        secret.encode("utf-8"),
     ):
         raise HTTPException(401, "Unauthorized internal caller", headers=NO_STORE)
 
@@ -59,6 +61,8 @@ def provision_gate(
     response.headers["Cache-Control"] = "no-store"
     state: GateState = provision_closed_gate(event_id, unit)
     return ProvisionResponse(
-        event_id=state.event_id, state=state.state,
-        version=state.version, event_revision=state.event_revision,
+        event_id=state.event_id,
+        state=state.state,
+        version=state.version,
+        event_revision=state.event_revision,
     )

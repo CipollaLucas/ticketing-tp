@@ -1,4 +1,5 @@
 """Purchase HTTP is disabled by default and requires verified customer identity."""
+
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -48,12 +49,20 @@ def scenario(monkeypatch):
 
     def fake_purchase(intent, customer_id, key, unit):
         calls.append((intent, customer_id, key))
-        return PurchaseOutcome(OrderRecord(
-            id=order_id, customer_id=customer_id, event_id=event_id,
-            status="confirmed", total_minor=1000, currency="ARS",
-            created_at=datetime.now(UTC), items=(),
-            tickets=(TicketRecord(uuid4(), uuid4(), zone_id, None, "valid"),),
-        ), replayed=len(calls) > 1)
+        return PurchaseOutcome(
+            OrderRecord(
+                id=order_id,
+                customer_id=customer_id,
+                event_id=event_id,
+                status="confirmed",
+                total_minor=1000,
+                currency="ARS",
+                created_at=datetime.now(UTC),
+                items=(),
+                tickets=(TicketRecord(uuid4(), uuid4(), zone_id, None, "valid"),),
+            ),
+            replayed=len(calls) > 1,
+        )
 
     monkeypatch.setattr("ticketing_service.purchase_http.purchase_tickets", fake_purchase)
     monkeypatch.setattr(
@@ -103,8 +112,12 @@ def test_default_off_and_missing_bearer_fail_without_admission(scenario, monkeyp
     monkeypatch.setattr(settings, "purchases_enabled", False)
     assert client.post(url(event_id), headers=headers(), json=payload(zone_id)).status_code == 404
     monkeypatch.setattr(settings, "purchases_enabled", True)
-    assert client.post(url(event_id), headers={"Idempotency-Key": "x"},
-                       json=payload(zone_id)).status_code == 401
+    assert (
+        client.post(
+            url(event_id), headers={"Idempotency-Key": "x"}, json=payload(zone_id)
+        ).status_code
+        == 401
+    )
     assert not admission.calls and not calls
 
 
@@ -122,12 +135,15 @@ def test_invalid_identity_and_unavailable_authorities_fail_closed(scenario):
     assert not calls
 
 
-@pytest.mark.parametrize("body", [
-    {"items": []},
-    {"items": [{"zone_id": str(uuid4()), "quantity": 0}]},
-    {"items": [{"zone_id": str(uuid4()), "quantity": 1, "extra": "forged"}]},
-    {"items": [{"zone_id": str(uuid4()), "quantity": 1}], "customer_id": str(uuid4())},
-])
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"items": []},
+        {"items": [{"zone_id": str(uuid4()), "quantity": 0}]},
+        {"items": [{"zone_id": str(uuid4()), "quantity": 1, "extra": "forged"}]},
+        {"items": [{"zone_id": str(uuid4()), "quantity": 1}], "customer_id": str(uuid4())},
+    ],
+)
 def test_invalid_payload_never_creates_order(scenario, body):
     client, admission, calls, event_id, _ = scenario
     response = client.post(url(event_id), json=body, headers=headers())
@@ -138,7 +154,8 @@ def test_invalid_payload_never_creates_order(scenario, body):
 def test_missing_or_invalid_idempotency_key(scenario):
     client, admission, calls, event_id, zone_id = scenario
     response = client.post(
-        url(event_id), json=payload(zone_id),
+        url(event_id),
+        json=payload(zone_id),
         headers={"Authorization": "Bearer valid-token"},
     )
     assert response.status_code == 422
@@ -151,11 +168,20 @@ def test_historical_replay_does_not_depend_on_events_but_requires_identity(scena
     client, admission, calls, event_id, zone_id = scenario
     from ticketing_service.purchase_application import OrderRecord, PurchaseOutcome
 
-    existing = PurchaseOutcome(OrderRecord(
-        id=uuid4(), customer_id=admission.customer_id, event_id=event_id,
-        status="confirmed", total_minor=1000, currency="ARS",
-        created_at=datetime.now(UTC), items=(), tickets=(),
-    ), replayed=True)
+    existing = PurchaseOutcome(
+        OrderRecord(
+            id=uuid4(),
+            customer_id=admission.customer_id,
+            event_id=event_id,
+            status="confirmed",
+            total_minor=1000,
+            currency="ARS",
+            created_at=datetime.now(UTC),
+            items=(),
+            tickets=(),
+        ),
+        replayed=True,
+    )
     monkeypatch.setattr(
         "ticketing_service.purchase_http.replay_confirmed_purchase",
         lambda intent, customer_id, key, unit: existing,

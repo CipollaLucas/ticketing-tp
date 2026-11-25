@@ -2,6 +2,7 @@
 
 Never run this test with a non-disposable database.
 """
+
 import os
 from concurrent.futures import ThreadPoolExecutor
 from threading import Event
@@ -37,13 +38,13 @@ def test_schema_command_replay_and_stale_version():
     with Session(engine) as db:
         assert change_sale_gate(first, SqlAlchemyGateUnitOfWork(db)).version == 1
     with Session(engine) as db, pytest.raises(GateConflict):
-        change_sale_gate(GateCommand(uuid4(), event, "close", 0, 1),
-                         SqlAlchemyGateUnitOfWork(db))
+        change_sale_gate(GateCommand(uuid4(), event, "close", 0, 1), SqlAlchemyGateUnitOfWork(db))
     with Session(engine) as db:
         assert db.get(SaleGateRow, event).state == "open"
-        assert len(db.scalars(select(GateCommandRow).where(
-            GateCommandRow.event_id == event
-        )).all()) == 1
+        assert (
+            len(db.scalars(select(GateCommandRow).where(GateCommandRow.event_id == event)).all())
+            == 1
+        )
     engine.dispose()
 
 
@@ -60,9 +61,9 @@ def test_close_and_gate_lock_share_postgres_row_serialization():
 
     def synthetic_purchase_lock():
         with Session(engine) as db:
-            row = db.scalar(select(SaleGateRow).where(
-                SaleGateRow.event_id == event
-            ).with_for_update())
+            row = db.scalar(
+                select(SaleGateRow).where(SaleGateRow.event_id == event).with_for_update()
+            )
             assert row is not None and row.state == "open"
             has_lock.set()
             assert release.wait(timeout=10)

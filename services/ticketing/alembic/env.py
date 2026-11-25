@@ -1,4 +1,5 @@
 """Independent Ticketing schema migration runner."""
+
 from sqlalchemy import create_engine, pool
 
 from alembic import context

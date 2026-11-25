@@ -1,4 +1,5 @@
 """H5 zone creation: contract validation, authorization and local atomicity."""
+
 from uuid import uuid4
 
 import pytest
@@ -58,15 +59,22 @@ def post(client, event_id, payload, token=True):
 
 def general(name="General"):
     return {
-        "name": name, "mode": "general", "price_minor": 2500,
-        "currency": "ARS", "capacity": 20, "seats": [],
+        "name": name,
+        "mode": "general",
+        "price_minor": 2500,
+        "currency": "ARS",
+        "capacity": 20,
+        "seats": [],
     }
 
 
 def numbered():
     return {
-        "name": "VIP", "mode": "numbered", "price_minor": 5500,
-        "currency": "ARS", "seats": [{"label": "A1"}, {"label": "A2"}],
+        "name": "VIP",
+        "mode": "numbered",
+        "price_minor": 5500,
+        "currency": "ARS",
+        "seats": [{"label": "A1"}, {"label": "A2"}],
     }
 
 
@@ -98,14 +106,28 @@ def test_different_customer_and_duplicates_cannot_create_zone(scenario):
     assert post(client, event_id, general()).status_code == 409
 
 
-@pytest.mark.parametrize("body", [
-    {"name": "A", "mode": "general", "price_minor": 1, "currency": "ARS"},
-    {"name": "A", "mode": "numbered", "price_minor": 1, "currency": "ARS"},
-    {"name": "A", "mode": "numbered", "price_minor": 1, "currency": "ARS",
-     "seats": [{"label": "A1"}, {"label": "A1"}]},
-    {"name": "A", "mode": "general", "price_minor": 1, "currency": "ARS",
-     "capacity": 4, "unexpected": True},
-])
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"name": "A", "mode": "general", "price_minor": 1, "currency": "ARS"},
+        {"name": "A", "mode": "numbered", "price_minor": 1, "currency": "ARS"},
+        {
+            "name": "A",
+            "mode": "numbered",
+            "price_minor": 1,
+            "currency": "ARS",
+            "seats": [{"label": "A1"}, {"label": "A1"}],
+        },
+        {
+            "name": "A",
+            "mode": "general",
+            "price_minor": 1,
+            "currency": "ARS",
+            "capacity": 4,
+            "unexpected": True,
+        },
+    ],
+)
 def test_invalid_requests_do_not_write(scenario, body):
     client, engine, _, event_id = scenario
     assert post(client, event_id, body).status_code == 422
