@@ -18,6 +18,9 @@ from events_service.identity import (
     IdentityUnavailable,
 )
 from events_service.persistence import SqlAlchemyDraftWriter, SqlAlchemyEventReader
+from events_service.provision_http import HttpClosedGateProvisioner
+from events_service.provisioning import ClosedGateProvisionPort, provision_verified_draft
+from events_service.sales_port import SaleGateUnavailable
 from events_service.settings import settings
 
 router = APIRouter(prefix="/api/v1", tags=["Events protected preview"])
@@ -194,4 +197,64 @@ def sale_gate_readiness(
         "status": candidate.status,
         "ready_for_gate_provisioning": True,
         "gate_provisioned": False,
+    }
+
+
+def gate_provision_port() -> ClosedGateProvisionPort:
+    """A separate feature flag prevents accidentally enabling sale commands."""
+    if not settings.gate_provisioning_enabled:
+        raise HTTPException(404, "Not found", headers=NO_STORE)
+    try:
+        return HttpClosedGateProvisioner(
+            settings.ticketing_service_url, settings.ticketing_internal_token,
+            timeout=settings.ticketing_timeout_seconds,
+        )
+    except ValueError as error:
+        raise HTTPException(503, "Ticketing provisioning unavailable", headers=NO_STORE) from error
+
+
+@router.put("/owner/events/{event_id}/sale-gate-provision")
+def provision_event_gate(
+    event_id: UUID,
+    response: Response,
+    request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
+    verifier: Annotated[IdentityPort, Depends(identity_port)],
+    remote: Annotated[ClosedGateProvisionPort, Depends(gate_provision_port)],
+    db: Annotated[Session, Depends(session_scope)],
+):
+    """Verified committed future draft only; never publish or open sales."""
+    response.headers["Cache-Control"] = "no-store"
+    if not settings.gate_provisioning_enabled or not settings.protected_drafts_enabled:
+        raise HTTPException(404, "Not found", headers=NO_STORE)
+    if credentials is None:
+        raise HTTPException(
+            401, "Invalid or expired credentials",
+            headers={**NO_STORE, "WWW-Authenticate": "Bearer"},
+        )
+    try:
+        principal = verifier.introspect(
+            credentials.credentials, request.headers.get("X-Request-ID"),
+        )
+    except IdentityUnauthorized as error:
+        raise HTTPException(401, "Invalid or expired credentials", headers=NO_STORE) from error
+    except IdentityUnavailable as error:
+        raise HTTPException(503, "Identity verification unavailable", headers=NO_STORE) from error
+    try:
+        result = provision_verified_draft(
+            SqlAlchemyEventReader(db), remote, event_id, principal.id,
+            principal.role, datetime.now(UTC), request.headers.get("X-Request-ID"),
+        )
+    except GateReadinessDenied as error:
+        raise HTTPException(404, "Event not available", headers=NO_STORE) from error
+    except SaleGateUnavailable as error:
+        raise HTTPException(
+            503, "Ticketing provisioning unconfirmed; retry with same event ID",
+            headers=NO_STORE,
+        ) from error
+    return {
+        "event_id": result.event_id,
+        "state": result.state.state,
+        "version": result.state.version,
+        "event_revision": result.state.event_revision,
     }
