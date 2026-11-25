@@ -48,8 +48,43 @@ def main() -> None:
             200,
             "Customer login",
         )["access_token"]
+        administrator = checked(
+            gateway.post(
+                "/api/v1/auth/login",
+                json={"username": "h5admin", "password": password},
+            ),
+            200,
+            "Administrator login",
+        )["access_token"]
         owner_auth = {"Authorization": f"Bearer {owner}"}
         customer_auth = {"Authorization": f"Bearer {customer}"}
+        admin_auth = {"Authorization": f"Bearer {administrator}"}
+        admin_identity = checked(
+            gateway.get("/api/v1/auth/me", headers=admin_auth),
+            200,
+            "Administrator identity",
+        )
+        assert admin_identity["role"] == "administrator"
+        customer_identity = checked(
+            gateway.get("/api/v1/auth/me", headers=customer_auth),
+            200,
+            "Customer identity",
+        )
+        role_path = f"/api/v1/admin/users/{customer_identity['id']}/role"
+        assert gateway.patch(
+            role_path, json={"role": "event_owner"}, headers=owner_auth,
+        ).status_code == 403
+        assert gateway.patch(
+            role_path, json={"role": "event_owner"}, headers=customer_auth,
+        ).status_code == 403
+        unchanged = checked(
+            gateway.patch(
+                role_path, json={"role": "customer"}, headers=admin_auth,
+            ),
+            200,
+            "Administrator manages customer role",
+        )
+        assert unchanged["role"] == "customer"
         checked(gateway.get("/api/v1/auth/me", headers=customer_auth), 200, "Identity me")
         assert gateway.get("/api/v1/me/tickets").status_code == 401
         assert gateway.post("/api/v1/events", json={}).status_code == 422
@@ -72,6 +107,15 @@ def main() -> None:
         )
         event_id = str(UUID(event["id"]))
         assert event["status"] == "draft"
+        owner_events = checked(
+            gateway.get("/api/v1/owner/events", headers=admin_auth),
+            200,
+            "Administrator can view all managed events",
+        )
+        assert any(item["id"] == event_id for item in owner_events["items"])
+        assert gateway.get(
+            "/api/v1/owner/events", headers=customer_auth,
+        ).status_code == 403
         assert gateway.get(f"/api/v1/events/{event_id}").status_code == 404
 
         zone = checked(
@@ -182,7 +226,8 @@ def main() -> None:
         assert gateway.get("/api/v1/me/tickets", headers=customer_auth).status_code in {401, 403}
 
     print("PASS: Gateway H5 routes Identity, Events and Ticketing without Legacy")
-    print("PASS: customer/owner authorization and inaccessible internal endpoints")
+    print("PASS: administrator, owner and customer RBAC through Gateway")
+    print("PASS: inaccessible private endpoints and failed privilege escalation")
     print("PASS: create draft, zone, publish, catalog, inventory, buy and ticket list")
     print("PASS: repeat purchase replays one order, changed payload conflicts")
     print("PASS: confirmed order blocks unpublish; logout invalidates customer token")
