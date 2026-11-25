@@ -353,3 +353,52 @@ jobs:
         if: always()
         run: |
           docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml down
+
+
+  h5-gateway-stage-i:
+    runs-on: ubuntu-latest
+    env:
+      H5_PROJECT: h5-gateway-ci
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate disposable H5 credentials
+        run: |
+          token=$(openssl rand -hex 32)
+          sales=$(openssl rand -hex 32)
+          password=$(openssl rand -hex 24)
+          echo "::add-mask::$token"
+          echo "::add-mask::$sales"
+          echo "::add-mask::$password"
+          echo "H3_INTERNAL_TOKEN=$token" >> "$GITHUB_ENV"
+          echo "H4_SALES_TOKEN=$sales" >> "$GITHUB_ENV"
+          echo "H3_TEST_PASSWORD=$password" >> "$GITHUB_ENV"
+      - name: Check Gateway syntax and static route ownership
+        run: |
+          docker run --rm -v "$PWD/gateway/three-service-preview.conf:/etc/nginx/conf.d/default.conf:ro" nginx:1.27-alpine nginx -t
+          python scripts/h5_gateway_contract_check.py
+      - name: Build disposable three-service Gateway UAT
+        run: |
+          docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml build h3-identity h3-events h4-ticketing h5-gateway-smoke
+      - name: Start three disposable PostgreSQL databases
+        run: |
+          docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml up -d --wait h3-identity-db h3-events-db h4-ticketing-db
+      - name: Apply owned schemas and seed disposable Identity only
+        run: |
+          for service in h3-identity h3-events h4-ticketing; do
+            docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml run --rm --no-deps "$service" alembic upgrade head
+          done
+          docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml run --rm --no-deps h3-identity python -m identity.h3_contract_seed
+      - name: Start the independent services and Gateway (no Legacy)
+        run: |
+          docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml up -d --wait h3-identity h3-events h4-ticketing h5-gateway
+      - name: Exercise Stage I through Gateway only
+        run: |
+          docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml run --rm --no-deps h5-gateway-smoke
+      - name: Inspect Gateway and services when failed
+        if: failure()
+        run: |
+          docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml logs --tail 100 h5-gateway h3-identity h3-events h4-ticketing
+      - name: Remove only disposable H5 project (no volumes)
+        if: always()
+        run: |
+          docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml down
