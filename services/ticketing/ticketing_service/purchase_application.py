@@ -10,7 +10,6 @@ from typing import Protocol
 from uuid import UUID
 
 from ticketing_service.purchase import (
-    PurchaseError,
     PurchaseIntent,
     PurchaseKeyConflict,
     validate_purchase,
