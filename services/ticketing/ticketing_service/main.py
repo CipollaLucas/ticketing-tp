@@ -6,8 +6,8 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from ticketing_service.customer_tickets_http import router as customer_tickets_router
-from ticketing_service.inventory_http import router as inventory_router
 from ticketing_service.http_audit import install_http_audit
+from ticketing_service.inventory_http import router as inventory_router
 from ticketing_service.persistence import engine
 from ticketing_service.provision_http import router as provision_router
 from ticketing_service.purchase_http import router as purchase_router
