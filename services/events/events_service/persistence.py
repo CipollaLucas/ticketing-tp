@@ -174,7 +174,7 @@ class SqlAlchemyDraftEditPort:
 class PublicationIntentRow(Base):
     __tablename__ = "event_publication_intents"
     __table_args__ = (
-        CheckConstraint("phase = 'prepared'", name="valid_publication_intent_phase"),
+        CheckConstraint("phase IN ('prepared','metadata_published')", name="valid_publication_intent_phase"),
         CheckConstraint("event_revision >= 1", name="positive_publication_revision"),
     )
 
@@ -232,6 +232,17 @@ class SqlAlchemyPublicationUnitOfWork:
         row = self.session.get(PublicationIntentRow, event_id)
         assert row is not None
         row.expected_gate_version = version
+
+    def mark_metadata_published(
+        self, event_id: UUID, revision: int, now: datetime,
+    ) -> None:
+        row = self.session.get(EventRow, event_id)
+        intent = self.session.get(PublicationIntentRow, event_id)
+        assert row is not None and intent is not None
+        row.status = "published"
+        row.revision = revision
+        row.updated_at = now
+        intent.phase = "metadata_published"
 
     def commit(self) -> None:
         self.session.commit()
