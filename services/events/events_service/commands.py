@@ -1,6 +1,7 @@
 """Protected preview HTTP adapter; no direct user IDs accepted from clients."""
 from datetime import UTC, datetime
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -9,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from events_service.application import owned_events
 from events_service.drafts import DraftInput, create_draft
+from events_service.gate_readiness import GateReadinessDenied, verify_gate_candidate
 from events_service.identity import (
     HttpIdentityAdapter,
     IdentityPort,
@@ -150,4 +152,46 @@ def owner_events(
             for row in rows
         ],
         "total": total, "limit": limit, "offset": offset,
+    }
+
+
+@router.get("/owner/events/{event_id}/sale-gate-readiness")
+def sale_gate_readiness(
+    event_id: UUID,
+    response: Response,
+    request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
+    verifier: Annotated[IdentityPort, Depends(identity_port)],
+    db: Annotated[Session, Depends(session_scope)],
+):
+    """Authorization preflight only: never provisions or opens a sale gate."""
+    response.headers["Cache-Control"] = "no-store"
+    if not settings.protected_drafts_enabled:
+        raise HTTPException(404, "Not found", headers=NO_STORE)
+    if credentials is None:
+        raise HTTPException(
+            401, "Invalid or expired credentials",
+            headers={**NO_STORE, "WWW-Authenticate": "Bearer"},
+        )
+    try:
+        principal = verifier.introspect(
+            credentials.credentials, request.headers.get("X-Request-ID"),
+        )
+    except IdentityUnauthorized as error:
+        raise HTTPException(401, "Invalid or expired credentials", headers=NO_STORE) from error
+    except IdentityUnavailable as error:
+        raise HTTPException(503, "Identity verification unavailable", headers=NO_STORE) from error
+    try:
+        candidate = verify_gate_candidate(
+            SqlAlchemyEventReader(db), event_id, principal.id, principal.role,
+            datetime.now(UTC),
+        )
+    except GateReadinessDenied as error:
+        raise HTTPException(404, "Event unavailable for sale-gate preparation",
+                            headers=NO_STORE) from error
+    return {
+        "event_id": candidate.event_id,
+        "status": candidate.status,
+        "ready_for_gate_provisioning": True,
+        "gate_provisioned": False,
     }
