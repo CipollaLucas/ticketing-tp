@@ -9,10 +9,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from events_service.domain import EventRecord
+from events_service.edit_draft import EditEventError, EventPatch, edit_draft
 from events_service.persistence import (
     Base,
     EventRow,
     PublicationIntentRow,
+    SqlAlchemyDraftEditPort,
     SqlAlchemyPublicationUnitOfWork,
 )
 from events_service.publication import PublicationRejected, prepare_publication
@@ -120,4 +122,37 @@ def test_sqlite_transaction_survives_retry_in_new_session_without_publication():
         row = db.get(EventRow, event_id)
         assert row is not None
         assert row.status == "draft" and row.revision == 0
+    engine.dispose()
+
+
+def test_pending_publication_blocks_draft_edit_in_same_database():
+    engine = create_engine(
+        "sqlite+pysqlite://", connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(engine)
+    event_id = uuid4()
+    start = NOW + timedelta(days=6)
+    with Session(engine) as db:
+        db.add(EventRow(
+            id=event_id, owner_id=OWNER, name="Unchanged",
+            description="Description", venue="Hall", start_at=start,
+            end_at=start + timedelta(hours=2), status="draft", revision=0,
+        ))
+        db.commit()
+    with Session(engine) as db:
+        prepare_publication(
+            SqlAlchemyPublicationUnitOfWork(db), event_id, OWNER, "event_owner", NOW,
+        )
+    with Session(engine) as db:
+        with pytest.raises(EditEventError) as error:
+            edit_draft(
+                event_id, OWNER, "event_owner",
+                EventPatch({"name": "Must not change"}),
+                SqlAlchemyDraftEditPort(db), NOW,
+            )
+        assert error.value.status == 409
+    with Session(engine) as db:
+        assert db.get(EventRow, event_id).name == "Unchanged"
+        assert db.get(PublicationIntentRow, event_id) is not None
     engine.dispose()
