@@ -35,11 +35,12 @@ Do not use `down -v` against any non-disposable project. Only this dedicated tes
 | /api/v1/events (GET/POST) and /api/v1/events/{id} (GET/PATCH) | Events | proxied |
 | /api/v1/events/{id}/publish or /unpublish | Events | proxied, flagged off outside UAT |
 | /api/v1/events/{id}/orders | Ticketing | proxied, flagged off outside UAT |
+| /api/v1/events/{id}/inventory | Ticketing | read-only, verifies published event in Events |
 | /api/v1/internal/* | none | 404, never public |
 | Other /api/* (inventory, my tickets not yet extracted) | none | 503, no Legacy fallback |
 
 ## Known blockers for final H5
 
-The current independent Ticketing API exposes purchases, but the existing inventory query and ticket listing browser contracts are not available from this service. Full React Stage I UAT is therefore **not** yet achieved. Extend the contracts in separate reviewed implementation changes before redirecting React. This preview must not activate production purchase gates or payments.
+The independent Ticketing API now provides a public inventory read path for published events. Zone creation, the legacy /orders purchase path and ticket listing browser contracts still need parity work. Full React Stage I UAT is therefore **not** yet achieved. Extend the contracts in separate reviewed implementation changes before redirecting React. This preview must not activate production purchase gates or payments.
 
 Gateway logs include request ID, method, path, response status, NGINX request_time seconds and upstream response time. These are preliminary gateway records, not evidence that *all services* capture HTTP audit timings. Validate full end-to-end correlation in a later change.
