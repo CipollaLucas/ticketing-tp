@@ -33,7 +33,7 @@ def main() -> None:
         assert gateway.get("/api/v1/route-not-extracted").status_code == 503
         # Explicit deny/fail-closed matrix: no internal token or bearer may
         # turn a browser Gateway request into an internal service call.
-        injected = {"X-Internal-Service-Token": os.environ["H4_SALES_TOKEN"]}
+        injected = {"X-Internal-Service-Token": "disposable-forged-internal-token"}
         for path in (
             "/api/v1/internal/sales/availability",
             "/api/v1/internal/auth/introspect",
@@ -46,7 +46,7 @@ def main() -> None:
         unavailable = gateway.get("/api/v1/route-not-extracted", headers=injected)
         assert unavailable.status_code == 503
         assert unavailable.headers.get("Cache-Control") == "no-store"
-        assert os.environ["H4_SALES_TOKEN"] not in unavailable.text
+        assert "disposable-forged-internal-token" not in unavailable.text
         assert gateway.get("/not-an-api-path").status_code == 404
         # Identity authorization must not be synthesized by NGINX: actual
         # service denial is expected for missing/invalid bearer.
