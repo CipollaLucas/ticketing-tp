@@ -158,6 +158,20 @@ def main() -> None:
         )
         published = checked(publish_reply, 200, "Publish through Gateway")
         assert published["status"] == "published"
+        late_zone = gateway.post(
+            f"/api/v1/events/{event_id}/zones",
+            json={
+                "name": "Late Zone",
+                "mode": "general",
+                "price_minor": 2500,
+                "currency": "ARS",
+                "capacity": 1,
+            },
+            headers=owner_auth,
+        )
+        assert late_zone.status_code in {404, 409}, (
+            f"Published event must reject zone creation: {late_zone.status_code}"
+        )
         trace_id = publish_reply.headers.get("X-Request-ID", "")
         assert len(trace_id) == 32 and all(
             digit in "0123456789abcdef" for digit in trace_id
