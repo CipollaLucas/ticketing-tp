@@ -120,7 +120,7 @@ def main() -> int:
         for kind, (archive, checksum, counts) in archives.items():
             if hashlib.sha256(archive.read_bytes()).hexdigest() != checksum:
                 raise BackupError(f"{kind} backup checksum mismatch")
-            restored = restore_isolated(kind, archive, counts)
+            restored = restore_isolated(kind, archive, counts, tables=DATABASES[kind][3])
             if restored != counts:
                 raise BackupError(f"{kind} restore count mismatch")
             print(f"RESTORE {kind}: PASS, offline and network-isolated", flush=True)
