@@ -457,6 +457,12 @@ jobs:
         env:
           H5_DISPOSABLE_RESTORE_UAT: "yes"
         run: python scripts/verify_h5_three_db_restore.py "$RUNNER_TEMP/h5-smoke.log"
+      - name: Test fail-closed cutover abort guard
+        run: python -m unittest discover -s scripts -p test_h5_abort_guard.py -v
+      - name: Demonstrate disposable post-write abort is blocked
+        env:
+          H5_DISPOSABLE_ABORT_UAT: "yes"
+        run: python scripts/verify_h5_abort_dry_run.py "$RUNNER_TEMP/h5-smoke.log"
       - name: Upload browser screenshots for review
         if: always()
         uses: actions/upload-artifact@v4
