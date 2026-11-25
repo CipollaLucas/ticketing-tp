@@ -356,7 +356,8 @@ jobs:
 
 
   h5-gateway-stage-i:
-    runs-on: ubuntu-latest
+    # Playwright 1.56 supports Ubuntu 24.04; ubuntu-latest may resolve to 26.04.
+    runs-on: ubuntu-24.04
     env:
       H5_PROJECT: h5-gateway-ci
     steps:
