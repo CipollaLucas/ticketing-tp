@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     sale_commands_enabled: bool = False
     gate_provisioning_enabled: bool = False
     purchases_enabled: bool = False
+    zone_configuration_enabled: bool = False
     identity_service_url: str = "http://identity:8001"
     events_service_url: str = "http://events:8002"
     identity_internal_token: str = ""
