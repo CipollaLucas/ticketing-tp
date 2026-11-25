@@ -90,6 +90,7 @@ class SqlAlchemyEventReader:
                 id=row.id, owner_id=row.owner_id, name=row.name,
                 description=row.description, venue=row.venue, start_at=row.start_at,
                 end_at=row.end_at, status=row.status,
+                created_at=row.created_at, updated_at=row.updated_at,
             )
             for row in rows
         ], total
