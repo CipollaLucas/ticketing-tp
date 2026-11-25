@@ -148,18 +148,28 @@ def insert_zone(db: Session, event_id: UUID, payload: ZoneInput) -> ZoneResponse
     # the same sale_gates row for its CAS opening command. ON CONFLICT DO
     # NOTHING never resets an already-open gate and concurrent provisioning
     # serializes at the unique event_id constraint in PostgreSQL.
+    gate_values = {
+        "event_id": event_id,
+        "state": "closed",
+        "version": 0,
+        "event_revision": 0,
+    }
     dialect = db.get_bind().dialect.name
     if dialect == "postgresql":
-        insert_gate = pg_insert(SaleGateRow)
+        db.execute(
+            pg_insert(SaleGateRow)
+            .values(**gate_values)
+            .on_conflict_do_nothing(index_elements=[SaleGateRow.event_id])
+        )
     elif dialect == "sqlite":
-        insert_gate = sqlite_insert(SaleGateRow)  # in-memory unit tests
+        # SQLite is used only by the in-memory unit tests.
+        db.execute(
+            sqlite_insert(SaleGateRow)
+            .values(**gate_values)
+            .on_conflict_do_nothing(index_elements=[SaleGateRow.event_id])
+        )
     else:
         raise HTTPException(503, "Unsupported inventory transaction backend", headers=NO_STORE)
-    db.execute(
-        insert_gate.values(
-            event_id=event_id, state="closed", version=0, event_revision=0,
-        ).on_conflict_do_nothing(index_elements=[SaleGateRow.event_id])
-    )
     gate = db.scalar(
         select(SaleGateRow)
         .where(SaleGateRow.event_id == event_id)
