@@ -150,6 +150,9 @@ class SqlAlchemyDraftEditPort:
             created_at=row.created_at, updated_at=row.updated_at,
         )
 
+    def pending_publication(self, event_id: UUID) -> bool:
+        return self.session.get(PublicationIntentRow, event_id) is not None
+
     def save(self, event: EventRecord) -> None:
         row = self.session.get(EventRow, event.id)
         assert row is not None
