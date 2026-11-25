@@ -422,13 +422,22 @@ jobs:
       - name: Restart only H5 application containers (retain all disposable PostgreSQL)
         run: |
           docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml restart h3-identity h3-events h4-ticketing
-          for attempt in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:8091/health >/dev/null; then
+          # Gateway /health is a local NGINX return, not an upstream readiness check.
+          docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml up -d --wait h3-identity h3-events h4-ticketing h5-gateway
+          # Resolve upstream container addresses again after application restarts.
+          docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml exec -T h5-gateway nginx -t
+          docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml exec -T h5-gateway nginx -s reload
+          # Probe a route that actually crosses NGINX to an application.
+          for attempt in $(seq 1 20); do
+            if curl -fsS "http://127.0.0.1:8091/api/v1/events?limit=1&offset=0" >/dev/null; then
               break
+            fi
+            if [ "$attempt" -eq 20 ]; then
+              echo "Gateway upstream still unavailable after restart"
+              exit 1
             fi
             sleep 1
           done
-          docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml up -d --wait h3-identity h3-events h4-ticketing h5-gateway
       - name: Verify persistence and idempotency after H5 restarts
         env:
           H5_DISPOSABLE_RESTART_UAT: "yes"
