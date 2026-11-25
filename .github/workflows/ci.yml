@@ -386,6 +386,7 @@ jobs:
             docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml run --rm --no-deps "$service" alembic upgrade head
           done
           docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml run --rm --no-deps h3-identity python -m identity.h3_contract_seed
+          docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml run --rm --no-deps h3-identity python -m identity.h5_admin_seed
       - name: Start the independent services and Gateway (no Legacy)
         run: |
           docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml up -d --wait h3-identity h3-events h4-ticketing h5-gateway
