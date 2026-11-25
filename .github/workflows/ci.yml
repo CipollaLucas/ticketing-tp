@@ -409,7 +409,11 @@ jobs:
           VITE_API_PROXY_TARGET=http://127.0.0.1:8091 npm run dev -- --host 127.0.0.1 > "$RUNNER_TEMP/h5-vite.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/h5-vite.pid"
           cd ..
-          python -c "import time, urllib.request; url='http://127.0.0.1:5173/'; [(time.sleep(1)) for _ in range(30) if not _ and False]; exec('for i in range(30):\\n try:\\n  urllib.request.urlopen(url,timeout=1); break\\n except Exception:\\n  time.sleep(1)\\nelse: raise SystemExit(\\\"Vite not ready\\\")')"
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:5173/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:5173/ >/dev/null
       - name: Exercise real React workspace in Chromium without Legacy
         env:
           H5_DISPOSABLE_BROWSER_UAT: "yes"
