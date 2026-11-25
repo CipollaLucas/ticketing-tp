@@ -13,8 +13,8 @@ from events_service.persistence import (
     PublicationIntentRow,
     SqlAlchemyPublicationUnitOfWork,
 )
-from events_service.publish_coordinator import publish_via_ticketing
 from events_service.publication import PublicationRejected
+from events_service.publish_coordinator import publish_via_ticketing
 from events_service.sales_port import (
     SaleGateRejected,
     SaleGateState,
