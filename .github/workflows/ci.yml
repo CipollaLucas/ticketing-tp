@@ -321,7 +321,7 @@ jobs:
           echo "H3_TEST_PASSWORD=$password" >> "$GITHUB_ENV"
       - name: Build independent Identity Events and Ticketing images
         run: |
-          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml build h3-identity h3-events h4-ticketing h4-live-smoke
+          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml build h3-identity h3-events h4-ticketing h4-live-smoke h4-confirmed-order-smoke
       - name: Start three disposable PostgreSQL databases
         run: |
           docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml up -d --wait h3-identity-db h3-events-db h4-ticketing-db
@@ -339,6 +339,9 @@ jobs:
       - name: Run publish unpublish and republish contract over HTTP
         run: |
           docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml run --rm --no-deps h4-live-smoke
+      - name: Test confirmed order prevents unpublish through real Events HTTP
+        run: |
+          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml run --rm --no-deps h4-confirmed-order-smoke
       - name: Show service logs if unsuccessful
         if: failure()
         run: |
