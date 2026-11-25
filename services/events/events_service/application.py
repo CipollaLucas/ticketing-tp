@@ -41,3 +41,19 @@ def owned_events(
     if owner_id is not None and any(row.owner_id != owner_id for row in rows):
         raise ValueError("Repository returned another owner's event")
     return rows, total
+
+
+class EventDetailReader(Protocol):
+    def by_id(self, event_id: UUID) -> EventRecord | None: ...
+
+
+def public_event_detail(reader: EventDetailReader, event_id: UUID) -> EventRecord | None:
+    """Stage I detail: any published event, including one that already started.
+
+    The public catalog is intentionally stricter: published and upcoming only.
+    Draft or missing records must be indistinguishable to anonymous callers.
+    """
+    record = reader.by_id(event_id)
+    if record is None or record.status != "published":
+        return None
+    return record
