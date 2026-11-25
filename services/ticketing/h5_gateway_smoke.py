@@ -225,6 +225,13 @@ def main() -> None:
         assert logged_out.status_code == 204
         assert gateway.get("/api/v1/me/tickets", headers=customer_auth).status_code in {401, 403}
 
+        # Only disposable identifiers; this output feeds the restart regression.
+        print(f"H5_RESTART_EVENT_ID={event_id}", flush=True)
+        print(f"H5_RESTART_ORDER_ID={order['id']}", flush=True)
+        print(f"H5_RESTART_TICKET_ID={order['tickets'][0]['id']}", flush=True)
+        print(f"H5_RESTART_ZONE_ID={zone_id}", flush=True)
+        print(f"H5_RESTART_KEY={purchase_auth['Idempotency-Key']}", flush=True)
+
     print("PASS: Gateway H5 routes Identity, Events and Ticketing without Legacy")
     print("PASS: administrator, owner and customer RBAC through Gateway")
     print("PASS: inaccessible private endpoints and failed privilege escalation")
