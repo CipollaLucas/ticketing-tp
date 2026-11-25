@@ -4,6 +4,7 @@ Only the Events service may use the internal credential; event ownership and
 actor authorization remain Events/Identity responsibilities.
 """
 from hmac import compare_digest
+from typing import cast
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -67,7 +68,7 @@ def read_sale_gate(
             event_id=event_id, state="closed", version=0, event_revision=0,
         )
     return SaleStateResponse(
-        event_id=gate.event_id, state=gate.state, version=gate.version,
+        event_id=gate.event_id, state=cast(Literal["open", "closed"], gate.state), version=gate.version,
         event_revision=gate.event_revision,
     )
 
