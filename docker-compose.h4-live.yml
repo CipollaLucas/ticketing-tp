@@ -57,3 +57,21 @@ services:
       h4-ticketing:
         condition: service_healthy
     entrypoint: ["python", "h4_live_smoke.py"]
+
+  h4-confirmed-order-smoke:
+    build: ./services/ticketing
+    environment:
+      DATABASE_URL: postgresql+psycopg://h4_ticketing:h4-test-only@h4-ticketing-db:5432/h4_ticketing_test
+      H4_DISPOSABLE_UAT: "yes"
+      H3_IDENTITY_URL: http://h3-identity:8001
+      H3_EVENTS_URL: http://h3-events:8002
+      H4_TICKETING_URL: http://h4-ticketing:8003
+      H3_TEST_PASSWORD: ${H3_TEST_PASSWORD:?Set random H3_TEST_PASSWORD}
+    depends_on:
+      h3-identity:
+        condition: service_healthy
+      h3-events:
+        condition: service_healthy
+      h4-ticketing:
+        condition: service_healthy
+    entrypoint: ["python", "h4_confirmed_order_smoke.py"]
