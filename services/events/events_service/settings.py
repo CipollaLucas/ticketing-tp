@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     protected_drafts_enabled: bool = False
     gate_provisioning_enabled: bool = False
     publication_enabled: bool = False
+    unpublication_enabled: bool = False
     ticketing_service_url: str = ""
     ticketing_internal_token: str = ""
     ticketing_timeout_seconds: float = 2.0
