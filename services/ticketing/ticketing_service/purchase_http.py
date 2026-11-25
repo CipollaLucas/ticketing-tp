@@ -20,7 +20,6 @@ from ticketing_service.purchase_admission import (
     PurchaseAdmissionUnavailable,
 )
 from ticketing_service.purchase_application import (
-    PurchaseOutcome,
     purchase_tickets,
     replay_confirmed_purchase,
 )
