@@ -17,7 +17,12 @@ from events_service.persistence import (
     SqlAlchemyDraftEditPort,
     SqlAlchemyPublicationUnitOfWork,
 )
-from events_service.publication import PublicationRejected, prepare_publication
+from events_service.publication import (
+    PublicationRejected,
+    prepare_publication,
+    record_closed_gate_snapshot,
+)
+from events_service.sales_port import SaleGateState
 
 NOW = datetime.now(UTC)
 OWNER = uuid4()
@@ -47,6 +52,9 @@ class Stub:
 
     def persist_intent(self, intent):
         self.intent = intent
+
+    def bind_gate_version(self, event_id, version):
+        self.intent = replace(self.intent, expected_gate_version=version)
 
     def commit(self):
         self.commits += 1
@@ -155,4 +163,100 @@ def test_pending_publication_blocks_draft_edit_in_same_database():
     with Session(engine) as db:
         assert db.get(EventRow, event_id).name == "Unchanged"
         assert db.get(PublicationIntentRow, event_id) is not None
+    engine.dispose()
+
+
+def test_gate_snapshot_records_version_and_replay_preserves_original_command():
+    unit = Stub()
+    prepared = prepare_publication(unit, EVENT.id, OWNER, "event_owner", NOW)
+    snapshot = SaleGateState(EVENT.id, "closed", 7, 0)
+    captured = record_closed_gate_snapshot(
+        unit, EVENT.id, OWNER, "event_owner", snapshot,
+    )
+    repeated = record_closed_gate_snapshot(
+        unit, EVENT.id, OWNER, "event_owner", snapshot,
+    )
+    assert captured == repeated
+    assert captured.command_id == prepared.command_id
+    assert captured.event_revision == 1
+    assert captured.expected_gate_version == 7
+    assert unit.event.status == "draft"
+
+
+@pytest.mark.parametrize("gate", [
+    SaleGateState(EVENT.id, "open", 2, 0),
+    SaleGateState(uuid4(), "closed", 2, 0),
+    SaleGateState(EVENT.id, "closed", -1, 0),
+    SaleGateState(EVENT.id, "closed", 2, 1),
+])
+def test_inconsistent_or_open_gate_snapshot_is_rejected(gate):
+    unit = Stub()
+    prepare_publication(unit, EVENT.id, OWNER, "event_owner", NOW)
+    with pytest.raises(PublicationRejected) as error:
+        record_closed_gate_snapshot(unit, EVENT.id, OWNER, "event_owner", gate)
+    assert error.value.status == 409
+    assert unit.intent.expected_gate_version is None
+
+
+def test_gate_version_change_requires_reconciliation_not_rebinding():
+    unit = Stub()
+    prepare_publication(unit, EVENT.id, OWNER, "event_owner", NOW)
+    record_closed_gate_snapshot(
+        unit, EVENT.id, OWNER, "event_owner",
+        SaleGateState(EVENT.id, "closed", 3, 0),
+    )
+    with pytest.raises(PublicationRejected) as error:
+        record_closed_gate_snapshot(
+            unit, EVENT.id, OWNER, "event_owner",
+            SaleGateState(EVENT.id, "closed", 4, 0),
+        )
+    assert error.value.status == 409
+    assert unit.intent.expected_gate_version == 3
+
+
+def test_gate_snapshot_authorization_and_missing_preparation():
+    unit = Stub()
+    gate = SaleGateState(EVENT.id, "closed", 0, 0)
+    with pytest.raises(PublicationRejected):
+        record_closed_gate_snapshot(unit, EVENT.id, OWNER, "event_owner", gate)
+    prepare_publication(unit, EVENT.id, OWNER, "event_owner", NOW)
+    with pytest.raises(PublicationRejected) as error:
+        record_closed_gate_snapshot(unit, EVENT.id, uuid4(), "event_owner", gate)
+    assert error.value.status == 403
+    assert unit.intent.expected_gate_version is None
+
+
+def test_gate_snapshot_survives_new_database_session():
+    engine = create_engine(
+        "sqlite+pysqlite://", connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(engine)
+    event_id = uuid4()
+    start = NOW + timedelta(days=3)
+    with Session(engine) as db:
+        db.add(EventRow(
+            id=event_id, owner_id=OWNER, name="Show", description="Details",
+            venue="Hall", start_at=start, end_at=start + timedelta(hours=2),
+            status="draft", revision=0,
+        ))
+        db.commit()
+    with Session(engine) as db:
+        prepared = prepare_publication(
+            SqlAlchemyPublicationUnitOfWork(db), event_id, OWNER, "event_owner", NOW,
+        )
+    with Session(engine) as db:
+        captured = record_closed_gate_snapshot(
+            SqlAlchemyPublicationUnitOfWork(db), event_id, OWNER, "event_owner",
+            SaleGateState(event_id, "closed", 4, 0),
+        )
+        assert captured.command_id == prepared.command_id
+    with Session(engine) as db:
+        replay = record_closed_gate_snapshot(
+            SqlAlchemyPublicationUnitOfWork(db), event_id, OWNER, "event_owner",
+            SaleGateState(event_id, "closed", 4, 0),
+        )
+        assert replay == captured
+        assert db.get(PublicationIntentRow, event_id).expected_gate_version == 4
+        assert db.get(EventRow, event_id).status == "draft"
     engine.dispose()
