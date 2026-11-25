@@ -7,12 +7,12 @@
 
 ## Before archiving
 
-1. Confirm `main` has merged PR #106 and the owner-acceptance record. Confirm the final PR CI.
-2. Review `docs/H5-FINAL-ACCEPTANCE-EVIDENCE.md` and `docs/H5-TECHNICAL-ACCEPTANCE-DECISION.md`. Have technical and QA reviewers explicitly approve or reject each deferral; names and dates must be entered by those reviewers, not inferred from green CI.
+1. **Verified 2026-11-25:** `main` contains PR #107 (merge SHA `7c9b7eaf05bae76e05d1ba555451788aa74af09e`), recording the owner's bounded academic acceptance. [CI run 45662216072](https://github.com/CipollaLucas/ticketing-tp/actions/runs/45662216072) completed successfully with all twelve jobs green. Reverify the tip of `main` before a later archive PR.
+2. **Pending:** review `docs/H5-FINAL-ACCEPTANCE-EVIDENCE.md` and `docs/H5-TECHNICAL-ACCEPTANCE-DECISION.md`. Technical and QA reviewers must explicitly approve or reject each deferral; their names and dates must be entered by those reviewers, never inferred from green CI. The owner approval is recorded, but separate technical/QA sign-offs are not.
 3. Validate the `gateway-stage-i` OpenSpec delta and verify no requirement contradicts the deferred bounded prototype scope. Preserve the exact requirement and acceptance record.
 4. Create an archive-only PR using the project's installed OpenSpec CLI: `npx --yes @fission-ai/openspec@2.1.1 archive h5-gateway-stage-i-cutover` (inspect `--help` and review the resulting diff before committing). If the CLI requires all tasks checked, **do not falsely mark unsupported tests as passed**; first document or adjust the change scope with reviewer approval. Confirm whether the archive operation updates central specs; do not force the operation to make an invalid spec pass.
 5. Confirm only H5 OpenSpec files and intended canonical specs change. No changes to Legacy, Compose production, commercial flags, databases, migrations or payment APIs.
-6. Run strict OpenSpec validation and normal PR CI, inspect file moves/spec delta and merge only after independent approval. Record archive commit and reviewers in the acceptance document.
+6. Run strict OpenSpec validation and normal PR CI, inspect file moves/spec delta and merge only after independent approval. Record archive commit and reviewers in the acceptance document. **If the team accepts only the bounded academic scope, explicitly disposition the remaining operational rollback/backfill task rather than falsely checking it off.**
 
 ## Deliberately deferred scope
 
