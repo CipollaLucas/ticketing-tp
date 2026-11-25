@@ -244,6 +244,11 @@ class SqlAlchemyPublicationUnitOfWork:
         row.revision = revision
         row.updated_at = now
         intent.phase = "metadata_published"
+        old_close = self.session.get(UnpublishIntentRow, event_id)
+        if old_close is not None:
+            if old_close.phase != "completed":
+                raise ValueError("Cannot publish during unpublish")
+            self.session.delete(old_close)
 
     def commit(self) -> None:
         self.session.commit()
