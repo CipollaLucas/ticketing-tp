@@ -47,9 +47,9 @@ The exact PR/run ledger is in `docs/H5-FINAL-ACCEPTANCE-EVIDENCE.md`; do not cit
 
 | Role | Name | Date | Decision |
 | --- | --- | --- | --- |
-| Technical reviewer | OWNER ACCEPTED DEFERRAL; TEAM REVIEW PENDING | PENDING | OWNER ACCEPTED DEFERRAL; TEAM REVIEW PENDING |
-| Test/QA reviewer | OWNER ACCEPTED DEFERRAL; TEAM REVIEW PENDING | PENDING | OWNER ACCEPTED DEFERRAL; TEAM REVIEW PENDING |
-| Project/team owner | OWNER ACCEPTED DEFERRAL; TEAM REVIEW PENDING | PENDING | OWNER ACCEPTED DEFERRAL; TEAM REVIEW PENDING |
+| Technical reviewer | PENDING (no reviewer identified) | PENDING | PENDING — no independent sign-off received |
+| Test/QA reviewer | PENDING (no reviewer identified) | PENDING | PENDING — no independent sign-off received |
+| Project/team owner (user's explicit approval) | Lucas Cipolla | 2026-11-25 | ACCEPT BOUNDED H5, with documented exclusions; NOT a production approval |
 
 **Project-owner scoped architecture acceptance:** APPROVED 2026-11-25. Independent technical and QA sign-off: PENDING.  
 **OpenSpec H5 archive:** PREPARE CANDIDATE ONLY; WAIT FOR INDEPENDENT REVIEW AND EXPLICIT ARCHIVE DECISION.  
