@@ -22,10 +22,14 @@ from events_service.persistence import (
     SqlAlchemyDraftEditPort,
     SqlAlchemyDraftWriter,
     SqlAlchemyEventReader,
+    SqlAlchemyPublicationUnitOfWork,
 )
 from events_service.provision_http import HttpClosedGateProvisioner
 from events_service.provisioning import ClosedGateProvisionPort, provision_verified_draft
-from events_service.sales_port import SaleGateUnavailable
+from events_service.publish_coordinator import publish_via_ticketing
+from events_service.publication import PublicationRejected
+from events_service.sales_http import HttpTicketingGateAdapter
+from events_service.sales_port import SaleGatePort, SaleGateRejected, SaleGateUnavailable
 from events_service.settings import settings
 
 router = APIRouter(prefix="/api/v1", tags=["Events protected preview"])
@@ -318,4 +322,78 @@ def update_event(
         "name": event.name, "description": event.description, "venue": event.venue,
         "start_at": event.start_at, "end_at": event.end_at, "status": event.status,
         "created_at": event.created_at, "updated_at": event.updated_at,
+    }
+
+
+def publication_ports() -> tuple[ClosedGateProvisionPort, SaleGatePort]:
+    """Not reachable without a separate opt-in; private credentials only."""
+    if not settings.publication_enabled:
+        raise HTTPException(404, "Not found", headers=NO_STORE)
+    try:
+        return (
+            HttpClosedGateProvisioner(
+                settings.ticketing_service_url, settings.ticketing_internal_token,
+                timeout=settings.ticketing_timeout_seconds,
+            ),
+            HttpTicketingGateAdapter(
+                settings.ticketing_service_url, settings.ticketing_internal_token,
+                timeout=settings.ticketing_timeout_seconds,
+            ),
+        )
+    except ValueError as error:
+        raise HTTPException(503, "Ticketing publication unavailable", headers=NO_STORE) from error
+
+
+@router.post("/events/{event_id}/publish")
+def publish_event(
+    event_id: UUID,
+    response: Response,
+    request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
+    verifier: Annotated[IdentityPort, Depends(identity_port)],
+    remotes: Annotated[
+        tuple[ClosedGateProvisionPort, SaleGatePort], Depends(publication_ports),
+    ],
+    db: Annotated[Session, Depends(session_scope)],
+):
+    """Stage I shape with durable multi-service recovery; OFF by default."""
+    response.headers["Cache-Control"] = "no-store"
+    if not settings.protected_drafts_enabled or not settings.publication_enabled:
+        raise HTTPException(404, "Not found", headers=NO_STORE)
+    if credentials is None:
+        raise HTTPException(
+            401, "Invalid or expired credentials",
+            headers={**NO_STORE, "WWW-Authenticate": "Bearer"},
+        )
+    try:
+        principal = verifier.introspect(
+            credentials.credentials, request.headers.get("X-Request-ID"),
+        )
+    except IdentityUnauthorized as error:
+        raise HTTPException(401, "Invalid or expired credentials", headers=NO_STORE) from error
+    except IdentityUnavailable as error:
+        raise HTTPException(503, "Identity verification unavailable", headers=NO_STORE) from error
+    try:
+        publish_via_ticketing(
+            SqlAlchemyPublicationUnitOfWork(db), remotes[0], remotes[1],
+            event_id, principal.id, principal.role,
+            datetime.now(UTC), request.headers.get("X-Request-ID"),
+        )
+    except PublicationRejected as error:
+        raise HTTPException(error.status, error.detail, headers=NO_STORE) from error
+    except SaleGateRejected as error:
+        raise HTTPException(409, "Ticketing sale gate conflict", headers=NO_STORE) from error
+    except SaleGateUnavailable as error:
+        raise HTTPException(
+            503, "Publication not confirmed; retry same event ID",
+            headers=NO_STORE,
+        ) from error
+    event = SqlAlchemyEventReader(db).by_id(event_id)
+    assert event is not None and event.status == "published"
+    return {
+        "id": event.id, "owner_id": event.owner_id,
+        "name": event.name, "description": event.description, "venue": event.venue,
+        "start_at": event.start_at, "end_at": event.end_at,
+        "status": event.status, "created_at": event.created_at,
+        "updated_at": event.updated_at,
     }
