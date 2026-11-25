@@ -6,12 +6,14 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from ticketing_service.persistence import engine
 from ticketing_service.provision_http import router as provision_router
+from ticketing_service.purchase_http import router as purchase_router
 from ticketing_service.sale_http import router as sale_router
 from ticketing_service.settings import settings
 
 app = FastAPI(title="Ticketing Service — H4 foundation", version="0.1.0")
 app.include_router(sale_router)
 app.include_router(provision_router)
+app.include_router(purchase_router)
 
 
 @app.get("/health")
@@ -30,5 +32,5 @@ def availability():
     return {
         "sale_commands_enabled": settings.sale_commands_enabled,
         "gate_provisioning_enabled": settings.gate_provisioning_enabled,
-        "purchases_enabled": False,
+        "purchases_enabled": settings.purchases_enabled,
     }
