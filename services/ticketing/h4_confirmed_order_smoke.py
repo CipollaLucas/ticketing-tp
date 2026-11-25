@@ -1,8 +1,7 @@
 """Disposable cross-service UAT with a REAL confirmed Ticketing purchase.
 
 Event is created/published via real Identity and Events HTTP. A purchase is
-committed via Ticketing's existing application UoW (purchase HTTP does not
-exist yet). Events unpublish must return 409 without altering sale gate,
+committed through Ticketing's protected HTTP purchase API and existing UoW. Events unpublish must return 409 without altering sale gate,
 order, ticket, inventory or public metadata. Never use persistent databases.
 """
 import os
@@ -20,9 +19,6 @@ from ticketing_service.persistence import (
     ZoneRow,
     engine,
 )
-from ticketing_service.purchase import PurchaseIntent, TicketSelection
-from ticketing_service.purchase_application import purchase_tickets
-from ticketing_service.purchase_persistence import SqlAlchemyPurchaseUnitOfWork
 
 
 def checked(response: httpx.Response, expected: int, step: str) -> dict:
@@ -89,18 +85,26 @@ def main() -> None:
             ))
             db.commit()
 
-        intent = PurchaseIntent(event_id, (TicketSelection(zone_id, 2),))
-        with Session(engine) as db:
-            result = purchase_tickets(
-                intent, customer_id, "h4-real-confirmed-order",
-                SqlAlchemyPurchaseUnitOfWork(db),
-            )
-        assert not result.replayed
-        assert result.order.status == "confirmed"
-        assert result.order.total_minor == 2400
-        assert len(result.order.tickets) == 2
-        confirmed_id = result.order.id
-        ticket_ids = {ticket.id for ticket in result.order.tickets}
+        order_url = f"/api/v1/events/{event_id}/orders"
+        order_body = {"items": [{"zone_id": str(zone_id), "quantity": 2}]}
+        purchase_headers = {
+            "Authorization": f"Bearer {customer}",
+            "Idempotency-Key": "h4-real-confirmed-order",
+        }
+        assert ticketing.post(
+            order_url, json=order_body, headers=owner_header | {
+                "Idempotency-Key": "owner-is-not-customer",
+            },
+        ).status_code == 403
+        first_order = checked(ticketing.post(
+            order_url, json=order_body, headers=purchase_headers,
+        ), 201, "Customer purchase HTTP")
+        assert first_order["status"] == "confirmed"
+        assert first_order["total_minor"] == 2400
+        assert first_order["replayed"] is False
+        assert len(first_order["tickets"]) == 2
+        confirmed_id = UUID(first_order["id"])
+        ticket_ids = {UUID(ticket["id"]) for ticket in first_order["tickets"]}
 
         response = events.post(
             f"/api/v1/events/{event_id}/unpublish",
@@ -136,15 +140,15 @@ def main() -> None:
             f"/api/v1/events/{event_id}",
         ), 200, "Event remains public")
         assert detail["status"] == "published"
-        with Session(engine) as db:
-            replay = purchase_tickets(
-                intent, customer_id, "h4-real-confirmed-order",
-                SqlAlchemyPurchaseUnitOfWork(db),
-            )
-        assert replay.replayed and replay.order.id == confirmed_id
-        assert len(replay.order.tickets) == 2
+        replay = checked(ticketing.post(
+            order_url, json=order_body, headers=purchase_headers,
+        ), 200, "Historical purchase HTTP replay")
+        assert replay["replayed"] is True
+        assert UUID(replay["id"]) == confirmed_id
+        assert len(replay["tickets"]) == 2
+        assert {UUID(ticket["id"]) for ticket in replay["tickets"]} == ticket_ids
 
-    print("PASS: Identity and Events over real HTTP; confirmed purchase via real Ticketing UoW")
+    print("PASS: Identity, Events and Ticketing purchase over real HTTP with verified customer")
     print("PASS: HTTP unpublish refuses confirmed orders twice with 409")
     print("PASS: Ticketing sale gate remains open v1 and Events remains published")
     print("PASS: order, two valid tickets and remaining capacity preserved")
