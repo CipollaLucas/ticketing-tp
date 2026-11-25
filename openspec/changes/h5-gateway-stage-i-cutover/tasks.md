@@ -21,7 +21,7 @@
 ## Completion
 
 - [x] Record exact CI run IDs, tests, limitations and required team decisions (docs/H5-FINAL-ACCEPTANCE-EVIDENCE.md; explicit team acceptance still pending).
-- [ ] Obtain PR approval, green checks and merge before marking tasks complete.
+- [x] Verify H5 implementation/evidence PRs including #106 merged with green CI; project owner separately approved the bounded academic acceptance on 2026-11-25 (technical/QA independent reviews remain pending; see docs/H5-TECHNICAL-ACCEPTANCE-DECISION.md).
 - [ ] Archive this change after acceptance, not during planning.
 - [ ] Obtain explicit separate approval to activate any production cutover.
 
@@ -38,3 +38,7 @@ PR #82 remained unmerged and was closed as superseded by merged PR #103. Run [45
 ## Acceptance review checkpoint (2026-11-25)
 
 PR #105 is merged at `ff3c3a49fa01897a0921cbc4d1363698fa52712f`; [CI run 45660017482](https://github.com/CipollaLucas/ticketing-tp/actions/runs/45660017482) passed all twelve jobs, including H5 route security probes. See `docs/H5-TECHNICAL-ACCEPTANCE-DECISION.md` for the explicit review agenda and scope dispositions. The unchecked rollback dry-run, final approval, archive, and separate production cutover authorization **remain unchecked**; this branch does not approve or archive anything.
+
+## Owner acceptance and archive preparation
+
+On 2026-11-25, the project owner explicitly accepted the **bounded academic H5 architecture** and its stated limitations. This approval does **not** constitute independent QA review, green-light the operational rollback/backfill task, or authorize production cutover. The remaining unchecked tasks retain their actual state; see `docs/H5-OPENSPEC-ARCHIVE-READINESS.md` for the controlled archive procedure and deferred follow-up. Only archive after the required independent review/explicit disposition, without rewriting missing tests as passed.
