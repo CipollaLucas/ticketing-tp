@@ -11,7 +11,7 @@ from sqlalchemy.pool import StaticPool
 
 from ticketing_service.inventory_http import inventory_session
 from ticketing_service.main import app
-from ticketing_service.persistence import Base, SeatRow, ZoneRow
+from ticketing_service.persistence import Base, SaleGateRow, SeatRow, ZoneRow
 from ticketing_service.settings import settings
 from ticketing_service.zone_configuration_http import draft_verifier
 
@@ -144,3 +144,38 @@ def test_disabled_or_missing_bearer_cannot_write(scenario, monkeypatch):
     assert owner.calls == []
     with Session(engine) as db:
         assert db.scalars(select(ZoneRow)).all() == []
+
+
+def test_first_zone_provisions_closed_gate_without_opening_sales(scenario):
+    client, engine, _, event_id = scenario
+    assert post(client, event_id, general()).status_code == 201
+    with Session(engine) as db:
+        gate = db.get(SaleGateRow, event_id)
+        assert gate is not None
+        assert (gate.state, gate.version, gate.event_revision) == ("closed", 0, 0)
+
+
+def test_already_open_gate_cannot_be_reset_by_new_zone(scenario):
+    client, engine, _, event_id = scenario
+    with Session(engine) as db:
+        db.add(SaleGateRow(event_id=event_id, state="open", version=5, event_revision=4))
+        db.commit()
+    result = post(client, event_id, general())
+    assert result.status_code == 409
+    with Session(engine) as db:
+        gate = db.get(SaleGateRow, event_id)
+        assert gate is not None
+        assert (gate.state, gate.version, gate.event_revision) == ("open", 5, 4)
+        assert db.scalars(select(ZoneRow)).all() == []
+
+
+def test_closed_existing_gate_is_preserved_on_zone_creation(scenario):
+    client, engine, _, event_id = scenario
+    with Session(engine) as db:
+        db.add(SaleGateRow(event_id=event_id, state="closed", version=2, event_revision=2))
+        db.commit()
+    assert post(client, event_id, general()).status_code == 201
+    with Session(engine) as db:
+        gate = db.get(SaleGateRow, event_id)
+        assert gate is not None
+        assert (gate.state, gate.version, gate.event_revision) == ("closed", 2, 2)
