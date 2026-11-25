@@ -19,7 +19,8 @@ from ticketing_service.purchase_admission import (
     PurchaseAdmissionDenied,
     PurchaseAdmissionUnavailable,
 )
-from ticketing_service.purchase_http import admission_port, session_scope
+from ticketing_service.purchase_http import session_scope
+from ticketing_service.settings import settings
 
 router = APIRouter(prefix="/api/v1", tags=["Customer tickets"])
 bearer = HTTPBearer(auto_error=False)
@@ -39,6 +40,16 @@ class CustomerTicketPage(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+def ticket_reader_admission() -> HttpPurchaseAdmission:
+    try:
+        return HttpPurchaseAdmission(
+            settings.identity_service_url, settings.events_service_url,
+            settings.identity_internal_token, timeout=settings.purchase_timeout_seconds,
+        )
+    except ValueError as error:
+        raise HTTPException(503, "Identity integration unavailable", headers=NO_STORE) from error
 
 
 def query_customer_tickets(
@@ -79,7 +90,7 @@ def my_tickets(
     request: Request,
     response: Response,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
-    admission: Annotated[HttpPurchaseAdmission, Depends(admission_port)],
+    admission: Annotated[HttpPurchaseAdmission, Depends(ticket_reader_admission)],
     db: Annotated[Session, Depends(session_scope)],
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
