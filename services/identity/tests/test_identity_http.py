@@ -158,3 +158,123 @@ def test_validation_does_not_echo_password(client):
     })
     assert response.status_code == 422
     assert password not in response.text
+
+
+# Golden HTTP behavior from docs/API-ETAPA-I.md and backend/app/auth.py.
+# These tests preserve React's existing /api/v1 contract during Identity cutover.
+
+
+def test_legacy_public_identity_contract_has_exact_user_and_token_shapes(client):
+    http, _ = client
+    created = http.post("/api/v1/auth/register", json={
+        "username": "  PaRiTy_User  ",
+        "display_name": "  Parity Demo  ",
+        "password": "valid-test-password-2026",
+    })
+    assert created.status_code == 201, created.text
+    assert set(created.json()) == {"id", "username", "display_name", "role"}
+    assert created.json()["username"] == "parity_user"
+    assert created.json()["display_name"] == "Parity Demo"
+    assert created.json()["role"] == "customer"
+    assert login(http, "parity_user").status_code == 200
+    authenticated = login(http, "parity_user")
+    assert set(authenticated.json()) == {"access_token", "token_type", "expires_in"}
+    assert authenticated.json()["token_type"] == "bearer"
+    assert authenticated.json()["expires_in"] == settings.session_ttl_seconds
+    assert authenticated.headers["cache-control"] == "no-store"
+    token = authenticated.json()["access_token"]
+    profile = http.get("/api/v1/auth/me", headers=bearer(token))
+    assert profile.status_code == 200
+    assert profile.json() == created.json()
+    assert http.post("/api/v1/auth/logout", headers=bearer(token)).status_code == 204
+    assert http.get("/api/v1/auth/me", headers=bearer(token)).status_code == 401
+    assert http.post("/api/v1/auth/logout", headers=bearer(token)).status_code == 401
+
+
+@pytest.mark.parametrize("payload", [
+    {
+        "username": "xy", "display_name": "Valid",
+        "password": "valid-test-password-2026",
+    },
+    {
+        "username": "valid_user", "display_name": "",
+        "password": "valid-test-password-2026",
+    },
+    {
+        "username": "valid_user", "display_name": "Valid",
+        "password": "too-short",
+    },
+    {
+        "username": "valid_user", "display_name": "Valid",
+        "password": "valid-test-password-2026", "role": "administrator",
+    },
+    {
+        "username": "valid_user", "display_name": "Valid",
+        "password": "valid-test-password-2026", "id": "injected",
+    },
+])
+def test_legacy_registration_rejects_invalid_or_injected_fields(client, payload):
+    http, _ = client
+    response = http.post("/api/v1/auth/register", json=payload)
+    assert response.status_code == 422
+    assert isinstance(response.json()["detail"], list)
+    assert "valid-test-password-2026" not in response.text
+
+
+def test_legacy_auth_failure_and_profile_authorization_contract(client):
+    http, _ = client
+    first = register(http, "first_customer").json()
+    second = register(http, "second_customer").json()
+    first_token = login(http, "first_customer").json()["access_token"]
+    assert http.post("/api/v1/auth/login", json={
+        "username": "first_customer", "password": "invalid-password-2026",
+    }).status_code == 401
+    no_auth = http.get("/api/v1/auth/me")
+    assert no_auth.status_code == 401
+    assert no_auth.headers["www-authenticate"] == "Bearer"
+    other_profile = http.patch(
+        f"/api/v1/users/{second['id']}", headers=bearer(first_token),
+        json={"display_name": "Not allowed"},
+    )
+    assert other_profile.status_code == 403
+    assert http.patch(
+        f"/api/v1/users/{first['id']}", headers=bearer(first_token),
+        json={"display_name": "New Name", "role": "administrator"},
+    ).status_code == 422
+    changed = http.patch(
+        f"/api/v1/users/{first['id']}", headers=bearer(first_token),
+        json={"display_name": "  New Name  "},
+    )
+    assert changed.status_code == 200
+    assert changed.json()["display_name"] == "New Name"
+    assert changed.json()["role"] == "customer"
+
+
+def test_role_update_is_live_for_preexisting_session(client):
+    http, engine = client
+    owner = register(http, "promoted_owner").json()
+    token = login(http, "promoted_owner").json()["access_token"]
+    from identity.adapters.http import passwords
+    with Session(engine) as db:
+        db.add(UserRow(
+            username="parity_admin", display_name="Admin",
+            password_hash=passwords.hash("valid-test-password-2026"),
+            role=Role.ADMINISTRATOR.value,
+        ))
+        db.commit()
+    admin_token = login(http, "parity_admin").json()["access_token"]
+    route = f"/api/v1/admin/users/{owner['id']}/role"
+    assert http.patch(route, headers=bearer(token), json={
+        "role": "event_owner",
+    }).status_code == 403
+    promoted = http.patch(route, headers=bearer(admin_token), json={
+        "role": "event_owner",
+    })
+    assert promoted.status_code == 200
+    assert promoted.json()["role"] == "event_owner"
+    assert http.get("/api/v1/auth/me", headers=bearer(token)).json()["role"] == "event_owner"
+    demoted = http.patch(route, headers=bearer(admin_token), json={
+        "role": "customer",
+    })
+    assert demoted.status_code == 200
+    assert http.get("/api/v1/auth/me", headers=bearer(token)).json()["role"] == "customer"
