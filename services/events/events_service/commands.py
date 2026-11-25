@@ -19,7 +19,9 @@ from events_service.identity import (
     IdentityUnavailable,
 )
 from events_service.persistence import (
-    SqlAlchemyDraftEditPort, SqlAlchemyDraftWriter, SqlAlchemyEventReader,
+    SqlAlchemyDraftEditPort,
+    SqlAlchemyDraftWriter,
+    SqlAlchemyEventReader,
 )
 from events_service.provision_http import HttpClosedGateProvisioner
 from events_service.provisioning import ClosedGateProvisionPort, provision_verified_draft
