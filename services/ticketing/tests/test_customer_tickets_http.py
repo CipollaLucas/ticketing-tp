@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
+from sqlalchemy.pool import StaticPool
 
 from ticketing_service.customer_tickets_http import (
     query_customer_tickets,
@@ -41,7 +42,11 @@ class IdentityStub:
 
 @pytest.fixture
 def scenario(monkeypatch):
-    db_engine = create_engine("sqlite+pysqlite:///:memory:")
+    db_engine = create_engine(
+        "sqlite+pysqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     Base.metadata.create_all(db_engine)
     owner_id, outsider_id, event_id, zone_id = (uuid4() for _ in range(4))
     with Session(db_engine) as db:
