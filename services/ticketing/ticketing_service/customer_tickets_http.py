@@ -4,6 +4,7 @@ A verified Identity principal is required; no user UUID is accepted from callers
 Reads do not depend on Events publication or sale-gate status, so historical
 tickets remain accessible after an event is closed.
 """
+
 from typing import Annotated
 from uuid import UUID
 
@@ -45,15 +46,20 @@ class CustomerTicketPage(BaseModel):
 def ticket_reader_admission() -> HttpPurchaseAdmission:
     try:
         return HttpPurchaseAdmission(
-            settings.identity_service_url, settings.events_service_url,
-            settings.identity_internal_token, timeout=settings.purchase_timeout_seconds,
+            settings.identity_service_url,
+            settings.events_service_url,
+            settings.identity_internal_token,
+            timeout=settings.purchase_timeout_seconds,
         )
     except ValueError as error:
         raise HTTPException(503, "Identity integration unavailable", headers=NO_STORE) from error
 
 
 def query_customer_tickets(
-    db: Session, customer_id: UUID, limit: int, offset: int,
+    db: Session,
+    customer_id: UUID,
+    limit: int,
+    offset: int,
 ) -> CustomerTicketPage:
     owned = (
         select(TicketRow)
@@ -68,14 +74,16 @@ def query_customer_tickets(
         .where(OrderRow.customer_id == customer_id)
     )
     tickets = db.scalars(
-        owned.order_by(OrderRow.created_at.desc(), TicketRow.id)
-        .limit(limit).offset(offset)
+        owned.order_by(OrderRow.created_at.desc(), TicketRow.id).limit(limit).offset(offset)
     ).all()
     return CustomerTicketPage(
         items=[
             CustomerTicketResponse(
-                id=t.id, order_item_id=t.order_item_id,
-                zone_id=t.zone_id, seat_id=t.seat_id, status=t.status,
+                id=t.id,
+                order_item_id=t.order_item_id,
+                zone_id=t.zone_id,
+                seat_id=t.seat_id,
+                status=t.status,
             )
             for t in tickets
         ],
@@ -100,7 +108,8 @@ def my_tickets(
         raise HTTPException(401, "Invalid or expired credentials", headers=NO_STORE)
     try:
         customer = admission.customer(
-            credentials.credentials, request.headers.get("X-Request-ID"),
+            credentials.credentials,
+            request.headers.get("X-Request-ID"),
         )
     except PurchaseAdmissionDenied as error:
         raise HTTPException(403, str(error), headers=NO_STORE) from error

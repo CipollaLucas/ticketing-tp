@@ -1,4 +1,5 @@
 """PostgreSQL gate provisioning with INSERT ON CONFLICT DO NOTHING."""
+
 from typing import cast
 from uuid import UUID
 
@@ -17,13 +18,20 @@ class SqlAlchemyGateProvisionUnitOfWork:
 
     def ensure_closed_gate(self, event_id: UUID) -> GateState:
         self.db.execute(
-            insert(SaleGateRow).values(
-                event_id=event_id, state="closed", version=0, event_revision=0,
-            ).on_conflict_do_nothing(index_elements=[SaleGateRow.event_id]),
+            insert(SaleGateRow)
+            .values(
+                event_id=event_id,
+                state="closed",
+                version=0,
+                event_revision=0,
+            )
+            .on_conflict_do_nothing(index_elements=[SaleGateRow.event_id]),
         )
         row = self.db.scalar(
-            select(SaleGateRow).where(SaleGateRow.event_id == event_id)
-            .with_for_update().execution_options(populate_existing=True),
+            select(SaleGateRow)
+            .where(SaleGateRow.event_id == event_id)
+            .with_for_update()
+            .execution_options(populate_existing=True),
         )
         assert row is not None
         state = GateState(

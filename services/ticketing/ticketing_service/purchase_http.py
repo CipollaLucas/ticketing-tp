@@ -1,4 +1,5 @@
 """Customer purchase HTTP is strictly opt-in; gate+stock+orders stay one UoW."""
+
 from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
@@ -49,8 +50,10 @@ def admission_port() -> HttpPurchaseAdmission:
         raise HTTPException(404, "Not found", headers=NO_STORE)
     try:
         return HttpPurchaseAdmission(
-            settings.identity_service_url, settings.events_service_url,
-            settings.identity_internal_token, timeout=settings.purchase_timeout_seconds,
+            settings.identity_service_url,
+            settings.events_service_url,
+            settings.identity_internal_token,
+            timeout=settings.purchase_timeout_seconds,
         )
     except ValueError as error:
         raise HTTPException(503, "Purchase verification unavailable", headers=NO_STORE) from error
@@ -76,8 +79,10 @@ def create_order(
         raise HTTPException(422, "Idempotency-Key required", headers=NO_STORE)
     intent = PurchaseIntent(
         event_id,
-        tuple(TicketSelection(item.zone_id, item.quantity, tuple(item.seat_ids))
-              for item in payload.items),
+        tuple(
+            TicketSelection(item.zone_id, item.quantity, tuple(item.seat_ids))
+            for item in payload.items
+        ),
     )
     # Validate request before contacting remote authorities or acquiring a DB lock.
     from ticketing_service.purchase import validate_purchase
@@ -85,19 +90,24 @@ def create_order(
     try:
         validate_purchase(intent, idempotency_key)
         customer = admission.customer(
-            credentials.credentials, request.headers.get("X-Request-ID"),
+            credentials.credentials,
+            request.headers.get("X-Request-ID"),
         )
         # Identity is mandatory even for historical replay; Events is not.
         # Re-check the customer-scoped key in PostgreSQL before authorizing
         # a NEW purchase, so closed gates never cause duplicate allocation.
         outcome = replay_confirmed_purchase(
-            intent, customer.id, idempotency_key,
+            intent,
+            customer.id,
+            idempotency_key,
             SqlAlchemyPurchaseUnitOfWork(db),
         )
         if outcome is None:
             admission.public_event(event_id, datetime.now(UTC))
             outcome = purchase_tickets(
-                intent, customer.id, idempotency_key,
+                intent,
+                customer.id,
+                idempotency_key,
                 SqlAlchemyPurchaseUnitOfWork(db),
             )
     except PurchaseAdmissionDenied as error:
@@ -122,17 +132,22 @@ def create_order(
         "replayed": outcome.replayed,
         "items": [
             {
-                "id": item.id, "zone_id": item.zone_id,
+                "id": item.id,
+                "zone_id": item.zone_id,
                 "quantity": item.quantity,
                 "unit_price_minor": item.unit_price_minor,
                 "subtotal_minor": item.subtotal_minor,
-            } for item in order.items
+            }
+            for item in order.items
         ],
         "tickets": [
             {
-                "id": ticket.id, "order_item_id": ticket.order_item_id,
-                "zone_id": ticket.zone_id, "seat_id": ticket.seat_id,
+                "id": ticket.id,
+                "order_item_id": ticket.order_item_id,
+                "zone_id": ticket.zone_id,
+                "seat_id": ticket.seat_id,
                 "status": ticket.status,
-            } for ticket in order.tickets
+            }
+            for ticket in order.tickets
         ],
     }

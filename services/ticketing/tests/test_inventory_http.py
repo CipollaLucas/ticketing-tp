@@ -1,4 +1,5 @@
 """Public inventory: published Events only, no auth leakage or local sales mutation."""
+
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -21,12 +22,15 @@ def remote_verifier(event_id, *, status=200, published=True, other_id=False):
         if status != 200:
             return httpx.Response(status)
         now = datetime.now(UTC)
-        return httpx.Response(200, json={
-            "id": str(uuid4() if other_id else event_id),
-            "status": "published" if published else "draft",
-            "start_at": (now + timedelta(days=2)).isoformat(),
-            "end_at": (now + timedelta(days=3)).isoformat(),
-        })
+        return httpx.Response(
+            200,
+            json={
+                "id": str(uuid4() if other_id else event_id),
+                "status": "published" if published else "draft",
+                "start_at": (now + timedelta(days=2)).isoformat(),
+                "end_at": (now + timedelta(days=3)).isoformat(),
+            },
+        )
 
     remote = PublishedEventVerifier(transport=httpx.MockTransport(handler))
     return remote
@@ -61,18 +65,28 @@ def test_published_event_returns_frontend_inventory_contract(client):
     assert calls == [event_id]
 
 
-@pytest.mark.parametrize(("status", "published", "other_id", "expected"), [
-    (404, True, False, 404),
-    (503, True, False, 503),
-    (200, False, False, 404),
-    (200, True, True, 404),
-])
+@pytest.mark.parametrize(
+    ("status", "published", "other_id", "expected"),
+    [
+        (404, True, False, 404),
+        (503, True, False, 503),
+        (200, False, False, 404),
+        (200, True, True, 404),
+    ],
+)
 def test_public_inventory_fails_closed_before_reading_database(
-    client, status, published, other_id, expected,
+    client,
+    status,
+    published,
+    other_id,
+    expected,
 ):
     http, event_id, calls = client
     app.dependency_overrides[verifier] = lambda: remote_verifier(
-        event_id, status=status, published=published, other_id=other_id,
+        event_id,
+        status=status,
+        published=published,
+        other_id=other_id,
     )
     result = http.get(f"/api/v1/events/{event_id}/inventory")
     assert result.status_code == expected, result.text

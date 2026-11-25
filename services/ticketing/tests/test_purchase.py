@@ -1,4 +1,5 @@
 """Pure port contract, hashing parity and idempotent replay behavior."""
+
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -37,8 +38,15 @@ class FakeUnit:
 
     def read_order(self, order_id):
         return OrderRecord(
-            order_id, uuid4(), uuid4(), "confirmed", 100, "ARS",
-            datetime.now(UTC), (), (),
+            order_id,
+            uuid4(),
+            uuid4(),
+            "confirmed",
+            100,
+            "ARS",
+            datetime.now(UTC),
+            (),
+            (),
         )
 
     def commit(self):
@@ -50,14 +58,20 @@ class FakeUnit:
 
 def test_canonical_hash_matches_legacy_sorting():
     event, zone_a, zone_b, seat_a, seat_b = (uuid4() for _ in range(5))
-    first = PurchaseIntent(event, (
-        TicketSelection(zone_a, 2, (seat_a, seat_b)),
-        TicketSelection(zone_b, 1),
-    ))
-    reversed_intent = PurchaseIntent(event, (
-        TicketSelection(zone_b, 1),
-        TicketSelection(zone_a, 2, (seat_b, seat_a)),
-    ))
+    first = PurchaseIntent(
+        event,
+        (
+            TicketSelection(zone_a, 2, (seat_a, seat_b)),
+            TicketSelection(zone_b, 1),
+        ),
+    )
+    reversed_intent = PurchaseIntent(
+        event,
+        (
+            TicketSelection(zone_b, 1),
+            TicketSelection(zone_a, 2, (seat_b, seat_a)),
+        ),
+    )
     assert first.canonical_hash() == reversed_intent.canonical_hash()
     assert len(first.canonical_hash()) == 64
 
@@ -81,13 +95,16 @@ def test_conflicting_idempotency_key_rolls_back():
     assert u.rollbacks == 1 and u.allocated == 0
 
 
-@pytest.mark.parametrize("intent,key", [
-    (PurchaseIntent(uuid4(), ()), "one-key"),
-    (PurchaseIntent(uuid4(), (TicketSelection(uuid4(), 0),)), "one-key"),
-    (PurchaseIntent(uuid4(), (TicketSelection(uuid4(), 101),)), "one-key"),
-    (PurchaseIntent(uuid4(), (TicketSelection(uuid4(), 1),)), "bad key"),
-    (PurchaseIntent(uuid4(), (TicketSelection(uuid4(), 1),)), ""),
-])
+@pytest.mark.parametrize(
+    "intent,key",
+    [
+        (PurchaseIntent(uuid4(), ()), "one-key"),
+        (PurchaseIntent(uuid4(), (TicketSelection(uuid4(), 0),)), "one-key"),
+        (PurchaseIntent(uuid4(), (TicketSelection(uuid4(), 101),)), "one-key"),
+        (PurchaseIntent(uuid4(), (TicketSelection(uuid4(), 1),)), "bad key"),
+        (PurchaseIntent(uuid4(), (TicketSelection(uuid4(), 1),)), ""),
+    ],
+)
 def test_bad_intent_rejected_before_any_db_lock(intent, key):
     u = FakeUnit()
     with pytest.raises(PurchaseError):

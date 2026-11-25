@@ -1,4 +1,5 @@
 """H4 sale authority data only; no orders or external service tables."""
+
 import sqlalchemy as sa
 
 from alembic import op

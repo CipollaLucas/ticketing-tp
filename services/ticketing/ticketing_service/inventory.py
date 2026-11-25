@@ -1,4 +1,5 @@
 """Pure Ticketing inventory validation; no ORM or service-to-service imports."""
+
 from dataclasses import dataclass
 from typing import Literal
 from uuid import UUID

@@ -1,4 +1,5 @@
 """Real isolated PostgreSQL purchase UoW, transactions, locking and replay."""
+
 import os
 from concurrent.futures import ThreadPoolExecutor
 from threading import Event
@@ -37,14 +38,26 @@ pytestmark = pytest.mark.skipif(not DB_URL, reason="Disposable PostgreSQL not co
 def setup_event(engine, *, open_sales=True, capacity=4):
     event_id, zone_id = uuid4(), uuid4()
     with Session(engine) as db:
-        db.add(SaleGateRow(
-            event_id=event_id, state="open" if open_sales else "closed",
-            version=1 if open_sales else 0, event_revision=1 if open_sales else 0,
-        ))
-        db.add(ZoneRow(
-            id=zone_id, event_id=event_id, name="General", mode="general",
-            price_minor=1200, currency="ARS", capacity=capacity, available=capacity,
-        ))
+        db.add(
+            SaleGateRow(
+                event_id=event_id,
+                state="open" if open_sales else "closed",
+                version=1 if open_sales else 0,
+                event_revision=1 if open_sales else 0,
+            )
+        )
+        db.add(
+            ZoneRow(
+                id=zone_id,
+                event_id=event_id,
+                name="General",
+                mode="general",
+                price_minor=1200,
+                currency="ARS",
+                capacity=capacity,
+                available=capacity,
+            )
+        )
         db.commit()
     return event_id, zone_id
 
@@ -66,11 +79,16 @@ def state(engine, event, zone):
     with Session(engine) as db:
         gate = db.get(SaleGateRow, event)
         stock = db.get(ZoneRow, zone).available
-        order_count = db.scalar(select(func.count()).select_from(OrderRow).where(
-            OrderRow.event_id == event,
-        ))
+        order_count = db.scalar(
+            select(func.count())
+            .select_from(OrderRow)
+            .where(
+                OrderRow.event_id == event,
+            )
+        )
         ticket_count = db.scalar(
-            select(func.count()).select_from(TicketRow)
+            select(func.count())
+            .select_from(TicketRow)
             .join(OrderItemRow, TicketRow.order_item_id == OrderItemRow.id)
             .join(OrderRow, OrderItemRow.order_id == OrderRow.id)
             .where(OrderRow.event_id == event)
@@ -135,7 +153,9 @@ def test_purchase_holds_same_gate_lock_until_commit_before_close():
         with Session(engine) as db:
             return purchase_tickets(
                 PurchaseIntent(event, (TicketSelection(zone, 1),)),
-                uuid4(), "before-close", PausedUnit(db),
+                uuid4(),
+                "before-close",
+                PausedUnit(db),
             )
 
     def concurrent_close():
@@ -184,8 +204,10 @@ def test_no_sales_close_before_purchase_rejects_new_order():
     assert no_sales_close(engine, event).state == "closed"
     with pytest.raises(PurchaseError):
         purchase(
-            engine, PurchaseIntent(event, (TicketSelection(zone, 1),)),
-            uuid4(), "late-after-no-sales-close",
+            engine,
+            PurchaseIntent(event, (TicketSelection(zone, 1),)),
+            uuid4(),
+            "late-after-no-sales-close",
         )
     assert state(engine, event, zone) == ("closed", 4, 0, 0)
     engine.dispose()
@@ -209,7 +231,9 @@ def test_purchase_commits_first_no_sales_close_refuses_and_keeps_gate_open():
         with Session(engine) as db:
             return purchase_tickets(
                 PurchaseIntent(event, (TicketSelection(zone, 1),)),
-                uuid4(), "purchase-first", PausedPurchase(db),
+                uuid4(),
+                "purchase-first",
+                PausedPurchase(db),
             )
 
     with ThreadPoolExecutor(max_workers=2) as pool:
@@ -235,26 +259,30 @@ def test_historical_replay_after_gate_closure_never_reallocates():
 
     with Session(engine) as db:
         replay = replay_confirmed_purchase(
-            intent, customer, "historical-key",
+            intent,
+            customer,
+            "historical-key",
             SqlAlchemyPurchaseUnitOfWork(db),
         )
     assert replay is not None and replay.replayed
     assert replay.order.id == original.order.id
-    assert {t.id for t in replay.order.tickets} == {
-        t.id for t in original.order.tickets
-    }
+    assert {t.id for t in replay.order.tickets} == {t.id for t in original.order.tickets}
     assert state(engine, event_id, zone_id) == ("closed", 1, 1, 2)
 
     with Session(engine) as db:
         missing = replay_confirmed_purchase(
-            intent, uuid4(), "historical-key",
+            intent,
+            uuid4(),
+            "historical-key",
             SqlAlchemyPurchaseUnitOfWork(db),
         )
     assert missing is None
     with Session(engine) as db, pytest.raises(PurchaseKeyConflict):
         replay_confirmed_purchase(
             PurchaseIntent(event_id, (TicketSelection(zone_id, 1),)),
-            customer, "historical-key", SqlAlchemyPurchaseUnitOfWork(db),
+            customer,
+            "historical-key",
+            SqlAlchemyPurchaseUnitOfWork(db),
         )
     assert state(engine, event_id, zone_id) == ("closed", 1, 1, 2)
     engine.dispose()

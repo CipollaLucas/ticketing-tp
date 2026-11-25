@@ -3,6 +3,7 @@
 No cross-service SQL access and no trust in a buyer-provided customer UUID.
 The actual purchase transaction lives in Ticketing's own database.
 """
+
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from urllib.parse import urlsplit
@@ -44,8 +45,12 @@ class PublicEventData(BaseModel):
 def valid_service_url(url: str) -> str:
     parts = urlsplit(url)
     if (
-        parts.scheme not in {"http", "https"} or not parts.hostname
-        or parts.username or parts.password or parts.query or parts.fragment
+        parts.scheme not in {"http", "https"}
+        or not parts.hostname
+        or parts.username
+        or parts.password
+        or parts.query
+        or parts.fragment
         or parts.path not in {"", "/"}
     ):
         raise ValueError("Invalid service base URL")
@@ -54,8 +59,13 @@ def valid_service_url(url: str) -> str:
 
 class HttpPurchaseAdmission:
     def __init__(
-        self, identity_url: str, events_url: str, identity_internal_token: str,
-        *, timeout: float = 2.0, transport: httpx.BaseTransport | None = None,
+        self,
+        identity_url: str,
+        events_url: str,
+        identity_internal_token: str,
+        *,
+        timeout: float = 2.0,
+        transport: httpx.BaseTransport | None = None,
     ):
         self.identity_url = valid_service_url(identity_url)
         self.events_url = valid_service_url(events_url)
@@ -74,11 +84,14 @@ class HttpPurchaseAdmission:
             headers["X-Request-ID"] = request_id
         try:
             with httpx.Client(
-                transport=self.transport, timeout=self.timeout,
-                follow_redirects=False, trust_env=False,
+                transport=self.transport,
+                timeout=self.timeout,
+                follow_redirects=False,
+                trust_env=False,
             ) as client:
                 response = client.get(
-                    self.identity_url + "/api/v1/internal/auth/introspect", headers=headers,
+                    self.identity_url + "/api/v1/internal/auth/introspect",
+                    headers=headers,
                 )
         except httpx.RequestError as error:
             raise PurchaseAdmissionUnavailable("Identity unavailable") from error
@@ -97,8 +110,10 @@ class HttpPurchaseAdmission:
     def public_event(self, event_id: UUID, now: datetime) -> None:
         try:
             with httpx.Client(
-                transport=self.transport, timeout=self.timeout,
-                follow_redirects=False, trust_env=False,
+                transport=self.transport,
+                timeout=self.timeout,
+                follow_redirects=False,
+                trust_env=False,
             ) as client:
                 response = client.get(
                     self.events_url + f"/api/v1/events/{event_id}",
@@ -115,7 +130,8 @@ class HttpPurchaseAdmission:
             raise PurchaseAdmissionUnavailable("Invalid Events response") from error
         current = now.astimezone(UTC)
         if (
-            event.id != event_id or event.status != "published"
+            event.id != event_id
+            or event.status != "published"
             or event.start_at.astimezone(UTC) <= current
             or event.end_at.astimezone(UTC) <= event.start_at.astimezone(UTC)
         ):

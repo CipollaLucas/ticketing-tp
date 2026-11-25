@@ -1,4 +1,5 @@
 """Provision use case: closed-only, idempotent, atomic failure behavior."""
+
 from uuid import uuid4
 
 import pytest

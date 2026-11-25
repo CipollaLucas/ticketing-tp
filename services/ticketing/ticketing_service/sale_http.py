@@ -3,6 +3,7 @@
 Only the Events service may use the internal credential; event ownership and
 actor authorization remain Events/Identity responsibilities.
 """
+
 from hmac import compare_digest
 from typing import Annotated, Literal, cast
 from uuid import UUID
@@ -50,7 +51,8 @@ def require_events_service(
     if len(settings.events_internal_token) < 32:
         raise HTTPException(503, "Sales command integration unavailable", headers=NO_STORE)
     if not internal_token or not compare_digest(
-        internal_token.encode("utf-8"), settings.events_internal_token.encode("utf-8"),
+        internal_token.encode("utf-8"),
+        settings.events_internal_token.encode("utf-8"),
     ):
         raise HTTPException(401, "Unauthorized internal caller", headers=NO_STORE)
 
@@ -67,10 +69,15 @@ def read_sale_gate(
     if gate is None:
         # Unknown IDs are closed by default, including on the internal status endpoint.
         return SaleStateResponse(
-            event_id=event_id, state="closed", version=0, event_revision=0,
+            event_id=event_id,
+            state="closed",
+            version=0,
+            event_revision=0,
         )
     return SaleStateResponse(
-        event_id=gate.event_id, state=cast(Literal["open", "closed"], gate.state), version=gate.version,
+        event_id=gate.event_id,
+        state=cast(Literal["open", "closed"], gate.state),
+        version=gate.version,
         event_revision=gate.event_revision,
     )
 
@@ -85,7 +92,9 @@ def change_gate(
 ):
     response.headers["Cache-Control"] = "no-store"
     command = GateCommand(
-        command_id=payload.command_id, event_id=event_id, action=payload.action,
+        command_id=payload.command_id,
+        event_id=event_id,
+        action=payload.action,
         expected_version=payload.expected_version,
         event_revision=payload.event_revision,
     )
@@ -94,7 +103,9 @@ def change_gate(
     except GateConflict as error:
         raise HTTPException(409, str(error), headers=NO_STORE) from error
     return SaleStateResponse(
-        event_id=state.event_id, state=state.state, version=state.version,
+        event_id=state.event_id,
+        state=state.state,
+        version=state.version,
         event_revision=state.event_revision,
     )
 
@@ -112,8 +123,10 @@ def close_gate_for_unpublish(
     if payload.action != "close":
         raise HTTPException(422, "No-sales command requires close", headers=NO_STORE)
     command = GateCommand(
-        command_id=payload.command_id, event_id=event_id,
-        action="close", expected_version=payload.expected_version,
+        command_id=payload.command_id,
+        event_id=event_id,
+        action="close",
+        expected_version=payload.expected_version,
         event_revision=payload.event_revision,
     )
     try:
@@ -123,6 +136,8 @@ def close_gate_for_unpublish(
     except GateConflict as error:
         raise HTTPException(409, str(error), headers=NO_STORE) from error
     return SaleStateResponse(
-        event_id=result.event_id, state=result.state,
-        version=result.version, event_revision=result.event_revision,
+        event_id=result.event_id,
+        state=result.state,
+        version=result.version,
+        event_revision=result.event_revision,
     )

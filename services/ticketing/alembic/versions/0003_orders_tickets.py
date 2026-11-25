@@ -1,4 +1,5 @@
 """Ticketing-owned orders and tickets. External event/customer UUIDs are NOT foreign keys."""
+
 import sqlalchemy as sa
 
 from alembic import op
@@ -41,7 +42,8 @@ def upgrade() -> None:
         sa.CheckConstraint("quantity BETWEEN 1 AND 100", name="valid_item_quantity"),
         sa.CheckConstraint("unit_price_minor >= 0", name="valid_item_price"),
         sa.CheckConstraint(
-            "subtotal_minor = quantity * unit_price_minor", name="valid_item_subtotal",
+            "subtotal_minor = quantity * unit_price_minor",
+            name="valid_item_subtotal",
         ),
     )
     op.create_index("ix_order_items_order_id", "order_items", ["order_id"])
@@ -53,10 +55,12 @@ def upgrade() -> None:
         sa.Column("seat_id", sa.Uuid(), nullable=True, unique=True),
         sa.Column("status", sa.String(5), nullable=False),
         sa.ForeignKeyConstraint(
-            ["order_item_id", "zone_id"], ["order_items.id", "order_items.zone_id"],
+            ["order_item_id", "zone_id"],
+            ["order_items.id", "order_items.zone_id"],
         ),
         sa.ForeignKeyConstraint(
-            ["seat_id", "zone_id"], ["seats.id", "seats.zone_id"],
+            ["seat_id", "zone_id"],
+            ["seats.id", "seats.zone_id"],
         ),
         sa.CheckConstraint("status = 'valid'", name="valid_ticket_status"),
     )

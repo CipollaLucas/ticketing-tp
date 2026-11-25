@@ -1,4 +1,5 @@
 """Private provisioning HTTP proof without touching persistent PostgreSQL."""
+
 from uuid import uuid4
 
 import pytest
@@ -73,8 +74,10 @@ def test_first_provision_creates_closed_gate_and_retries_preserve_existing(isola
     assert first.status_code == 200, first.text
     assert first.headers["cache-control"] == "no-store"
     assert first.json() == {
-        "event_id": str(event_id), "state": "closed",
-        "version": 0, "event_revision": 0,
+        "event_id": str(event_id),
+        "state": "closed",
+        "version": 0,
+        "event_revision": 0,
     }
     unit.gates[event_id] = GateState(event_id, "open", 4, 7)
     retry = client.put(endpoint(event_id), headers=auth())

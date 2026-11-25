@@ -1,4 +1,5 @@
 """Ticketing-owned DB. No Events or Identity tables, imports or foreign keys."""
+
 from datetime import UTC, datetime
 from typing import Literal, cast
 from uuid import UUID
@@ -44,7 +45,9 @@ class GateCommandRow(Base):
     __tablename__ = "sale_gate_commands"
     command_id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
     event_id: Mapped[UUID] = mapped_column(
-        Uuid, ForeignKey("sale_gates.event_id"), nullable=False,
+        Uuid,
+        ForeignKey("sale_gates.event_id"),
+        nullable=False,
     )
     action: Mapped[str] = mapped_column(String(8), nullable=False)
     expected_version: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -56,6 +59,7 @@ class GateCommandRow(Base):
 
 class ZoneRow(Base):
     """Ticketing owns zones; event_id is a cross-context UUID, not an FK."""
+
     __tablename__ = "zones"
     __table_args__ = (
         UniqueConstraint("event_id", "name", name="uq_zone_event_name"),
@@ -84,12 +88,14 @@ class ZoneRow(Base):
 
 class SeatRow(Base):
     """Composite FK ensures a seat can belong only to a numbered zone."""
+
     __tablename__ = "seats"
     __table_args__ = (
         UniqueConstraint("zone_id", "label", name="uq_seat_zone_label"),
         UniqueConstraint("id", "zone_id", name="uq_seat_id_zone"),
         ForeignKeyConstraint(
-            ["zone_id", "mode"], ["zones.id", "zones.mode"],
+            ["zone_id", "mode"],
+            ["zones.id", "zones.mode"],
             name="fk_seat_numbered_zone",
         ),
         CheckConstraint("mode = 'numbered'", name="valid_seat_mode"),
@@ -104,6 +110,7 @@ class SeatRow(Base):
 
 class OrderRow(Base):
     """Customer and Event UUID references remain outside Ticketing's FK graph."""
+
     __tablename__ = "orders"
     __table_args__ = (
         UniqueConstraint("customer_id", "idempotency_key", name="uq_order_idempotency"),
@@ -122,7 +129,9 @@ class OrderRow(Base):
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
     status: Mapped[str] = mapped_column(String(10), nullable=False, default="confirmed")
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC),
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(UTC),
     )
 
 
@@ -134,7 +143,8 @@ class OrderItemRow(Base):
         CheckConstraint("quantity BETWEEN 1 AND 100", name="valid_item_quantity"),
         CheckConstraint("unit_price_minor >= 0", name="valid_item_price"),
         CheckConstraint(
-            "subtotal_minor = quantity * unit_price_minor", name="valid_item_subtotal",
+            "subtotal_minor = quantity * unit_price_minor",
+            name="valid_item_subtotal",
         ),
         Index("ix_order_items_order_id", "order_id"),
     )
@@ -150,7 +160,8 @@ class TicketRow(Base):
     __tablename__ = "tickets"
     __table_args__ = (
         ForeignKeyConstraint(
-            ["order_item_id", "zone_id"], ["order_items.id", "order_items.zone_id"],
+            ["order_item_id", "zone_id"],
+            ["order_items.id", "order_items.zone_id"],
         ),
         ForeignKeyConstraint(["seat_id", "zone_id"], ["seats.id", "seats.zone_id"]),
         CheckConstraint("status = 'valid'", name="valid_ticket_status"),
@@ -175,17 +186,23 @@ class SqlAlchemyGateUnitOfWork:
         if row is None:
             return None
         old = GateCommand(
-            row.command_id, row.event_id, cast(Literal["open", "close"], row.action), row.expected_version,
+            row.command_id,
+            row.event_id,
+            cast(Literal["open", "close"], row.action),
+            row.expected_version,
             row.event_revision,
         )
-        result = GateState(row.event_id, cast(SaleState, row.result_state), row.result_version,
-                           row.result_revision)
+        result = GateState(
+            row.event_id, cast(SaleState, row.result_state), row.result_version, row.result_revision
+        )
         return old, result
 
     def lock_gate(self, event_id: UUID) -> GateState | None:
         row = self.db.scalar(
-            select(SaleGateRow).where(SaleGateRow.event_id == event_id)
-            .with_for_update().execution_options(populate_existing=True)
+            select(SaleGateRow)
+            .where(SaleGateRow.event_id == event_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
         )
         if row is None:
             return None
@@ -193,9 +210,17 @@ class SqlAlchemyGateUnitOfWork:
 
     def confirmed_order_exists(self, event_id: UUID) -> bool:
         # Invoked ONLY after lock_gate while this transaction holds FOR UPDATE.
-        return self.db.scalar(select(OrderRow.id).where(
-            OrderRow.event_id == event_id, OrderRow.status == "confirmed",
-        ).limit(1)) is not None
+        return (
+            self.db.scalar(
+                select(OrderRow.id)
+                .where(
+                    OrderRow.event_id == event_id,
+                    OrderRow.status == "confirmed",
+                )
+                .limit(1)
+            )
+            is not None
+        )
 
     def save(self, command: GateCommand, state: GateState) -> None:
         row = self.db.get(SaleGateRow, state.event_id)
@@ -203,12 +228,18 @@ class SqlAlchemyGateUnitOfWork:
         row.state = state.state
         row.version = state.version
         row.event_revision = state.event_revision
-        self.db.add(GateCommandRow(
-            command_id=command.command_id, event_id=command.event_id,
-            action=command.action, expected_version=command.expected_version,
-            event_revision=command.event_revision, result_state=state.state,
-            result_version=state.version, result_revision=state.event_revision,
-        ))
+        self.db.add(
+            GateCommandRow(
+                command_id=command.command_id,
+                event_id=command.event_id,
+                action=command.action,
+                expected_version=command.expected_version,
+                event_revision=command.event_revision,
+                result_state=state.state,
+                result_version=state.version,
+                result_revision=state.event_revision,
+            )
+        )
 
     def commit(self) -> None:
         self.db.commit()

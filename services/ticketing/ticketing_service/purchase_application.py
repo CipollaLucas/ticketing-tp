@@ -4,6 +4,7 @@ No customer-role or Event metadata is looked up through SQL. The inbound
 adapter, when implemented, MUST verify Identity and relevant Events contract
 before calling this use case. No purchase HTTP endpoint is enabled.
 """
+
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
@@ -63,7 +64,10 @@ class PurchaseUnitOfWork(Protocol):
 
 
 def purchase_tickets(
-    intent: PurchaseIntent, customer_id: UUID, key: str, unit: PurchaseUnitOfWork,
+    intent: PurchaseIntent,
+    customer_id: UUID,
+    key: str,
+    unit: PurchaseUnitOfWork,
 ) -> PurchaseOutcome:
     """Idempotent historical replay is allowed after sale gate is closed."""
     validate_purchase(intent, key)
@@ -86,7 +90,10 @@ def purchase_tickets(
 
 
 def replay_confirmed_purchase(
-    intent: PurchaseIntent, customer_id: UUID, key: str, unit: PurchaseUnitOfWork,
+    intent: PurchaseIntent,
+    customer_id: UUID,
+    key: str,
+    unit: PurchaseUnitOfWork,
 ) -> PurchaseOutcome | None:
     """Look up a verified customer's prior purchase without consulting Events.
 

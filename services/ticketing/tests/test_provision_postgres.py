@@ -1,4 +1,5 @@
 """Real disposable PostgreSQL concurrency and no-reset regression."""
+
 import os
 from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
@@ -23,9 +24,13 @@ def test_gate_created_closed_then_repeat_preserves_open_gate():
     engine = create_engine(URL)
     event_id = uuid4()
     with Session(engine) as db:
-        assert provision_closed_gate(
-            event_id, SqlAlchemyGateProvisionUnitOfWork(db),
-        ).state == "closed"
+        assert (
+            provision_closed_gate(
+                event_id,
+                SqlAlchemyGateProvisionUnitOfWork(db),
+            ).state
+            == "closed"
+        )
     with Session(engine) as db:
         gate = db.get(SaleGateRow, event_id)
         assert gate is not None

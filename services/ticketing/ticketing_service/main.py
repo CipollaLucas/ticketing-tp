@@ -1,4 +1,5 @@
 """Opt-in independent Ticketing H4 foundation; NO purchase or gate write HTTP routes."""
+
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from sqlalchemy import text

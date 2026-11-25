@@ -1,4 +1,5 @@
 """Ticketing-owned inventory: zones/seats; event UUID has NO cross-service FK."""
+
 import sqlalchemy as sa
 
 from alembic import op
@@ -42,8 +43,9 @@ def upgrade() -> None:
         sa.Column("label", sa.String(50), nullable=False),
         sa.UniqueConstraint("zone_id", "label", name="uq_seat_zone_label"),
         sa.UniqueConstraint("id", "zone_id", name="uq_seat_id_zone"),
-        sa.ForeignKeyConstraint(["zone_id", "mode"], ["zones.id", "zones.mode"],
-                                name="fk_seat_numbered_zone"),
+        sa.ForeignKeyConstraint(
+            ["zone_id", "mode"], ["zones.id", "zones.mode"], name="fk_seat_numbered_zone"
+        ),
         sa.CheckConstraint("mode = 'numbered'", name="valid_seat_mode"),
         sa.CheckConstraint("length(trim(label)) BETWEEN 1 AND 50", name="valid_seat_label"),
     )

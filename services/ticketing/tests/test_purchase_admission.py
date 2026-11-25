@@ -1,4 +1,5 @@
 """Remote purchase admission must fail closed and never trust caller UUIDs."""
+
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -19,24 +20,35 @@ NOW = datetime.now(UTC)
 
 def admission(handler):
     return HttpPurchaseAdmission(
-        "http://identity:8001", "http://events:8002", TOKEN,
+        "http://identity:8001",
+        "http://events:8002",
+        TOKEN,
         transport=httpx.MockTransport(handler),
     )
 
 
 def identity_ok(request):
-    return httpx.Response(200, json={
-        "id": str(CUSTOMER), "username": "testbuyer",
-        "display_name": "Test Buyer", "role": "customer",
-    })
+    return httpx.Response(
+        200,
+        json={
+            "id": str(CUSTOMER),
+            "username": "testbuyer",
+            "display_name": "Test Buyer",
+            "role": "customer",
+        },
+    )
 
 
 def event_ok(request):
-    return httpx.Response(200, json={
-        "id": str(EVENT), "status": "published",
-        "start_at": (NOW + timedelta(days=3)).isoformat(),
-        "end_at": (NOW + timedelta(days=3, hours=2)).isoformat(),
-    })
+    return httpx.Response(
+        200,
+        json={
+            "id": str(EVENT),
+            "status": "published",
+            "start_at": (NOW + timedelta(days=3)).isoformat(),
+            "end_at": (NOW + timedelta(days=3, hours=2)).isoformat(),
+        },
+    )
 
 
 def test_verified_identity_and_public_future_event():
@@ -57,12 +69,15 @@ def test_verified_identity_and_public_future_event():
     assert requests[1].url.path == f"/api/v1/events/{EVENT}"
 
 
-@pytest.mark.parametrize("status,exception", [
-    (401, PurchaseAdmissionDenied),
-    (403, PurchaseAdmissionUnavailable),
-    (503, PurchaseAdmissionUnavailable),
-    (302, PurchaseAdmissionUnavailable),
-])
+@pytest.mark.parametrize(
+    "status,exception",
+    [
+        (401, PurchaseAdmissionDenied),
+        (403, PurchaseAdmissionUnavailable),
+        (503, PurchaseAdmissionUnavailable),
+        (302, PurchaseAdmissionUnavailable),
+    ],
+)
 def test_identity_denials(status, exception):
     port = admission(lambda request: httpx.Response(status))
     with pytest.raises(exception):
@@ -78,11 +93,14 @@ def test_non_customer_rejected():
         admission(handler).customer("token")
 
 
-@pytest.mark.parametrize("status,exception", [
-    (404, PurchaseAdmissionDenied),
-    (503, PurchaseAdmissionUnavailable),
-    (302, PurchaseAdmissionUnavailable),
-])
+@pytest.mark.parametrize(
+    "status,exception",
+    [
+        (404, PurchaseAdmissionDenied),
+        (503, PurchaseAdmissionUnavailable),
+        (302, PurchaseAdmissionUnavailable),
+    ],
+)
 def test_public_event_denials(status, exception):
     port = admission(lambda request: httpx.Response(status))
     with pytest.raises(exception):
@@ -111,10 +129,15 @@ def test_network_timeout_never_grants_purchase():
         port.public_event(EVENT, NOW)
 
 
-@pytest.mark.parametrize("url", [
-    "http://identity:8001/path", "http://user:password@identity:8001",
-    "ftp://identity:8001", "http://identity:8001/?token=abc",
-])
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://identity:8001/path",
+        "http://user:password@identity:8001",
+        "ftp://identity:8001",
+        "http://identity:8001/?token=abc",
+    ],
+)
 def test_invalid_base_url_cannot_construct_adapter(url):
     with pytest.raises(ValueError):
         HttpPurchaseAdmission(url, "http://events:8002", TOKEN)
