@@ -27,7 +27,7 @@ from ticketing_service.purchase import (
     PurchaseKeyConflict,
     TicketSelection,
 )
-from ticketing_service.purchase_application import purchase_tickets
+from ticketing_service.purchase_application import purchase_tickets, replay_confirmed_purchase
 from ticketing_service.purchase_persistence import SqlAlchemyPurchaseUnitOfWork
 
 DB_URL = os.getenv("TEST_POSTGRES_URL")
@@ -221,4 +221,41 @@ def test_purchase_commits_first_no_sales_close_refuses_and_keeps_gate_open():
         with pytest.raises(ConfirmedSalesExist):
             closer.result(timeout=15)
     assert state(engine, event, zone) == ("open", 1, 1, 1)
+    engine.dispose()
+
+
+def test_historical_replay_after_gate_closure_never_reallocates():
+    assert DB_URL is not None
+    engine = create_engine(DB_URL)
+    event_id, zone_id = setup_event(engine, capacity=3)
+    customer = uuid4()
+    intent = PurchaseIntent(event_id, (TicketSelection(zone_id, 2),))
+    original = purchase(engine, intent, customer, "historical-key")
+    close(engine, event_id)
+
+    with Session(engine) as db:
+        replay = replay_confirmed_purchase(
+            intent, customer, "historical-key",
+            SqlAlchemyPurchaseUnitOfWork(db),
+        )
+    assert replay is not None and replay.replayed
+    assert replay.order.id == original.order.id
+    assert {t.id for t in replay.order.tickets} == {
+        t.id for t in original.order.tickets
+    }
+    assert state(engine, event_id, zone_id) == ("closed", 1, 1, 2)
+
+    with Session(engine) as db:
+        missing = replay_confirmed_purchase(
+            intent, uuid4(), "historical-key",
+            SqlAlchemyPurchaseUnitOfWork(db),
+        )
+    assert missing is None
+    with Session(engine) as db:
+        with pytest.raises(PurchaseKeyConflict):
+            replay_confirmed_purchase(
+                PurchaseIntent(event_id, (TicketSelection(zone_id, 1),)),
+                customer, "historical-key", SqlAlchemyPurchaseUnitOfWork(db),
+            )
+    assert state(engine, event_id, zone_id) == ("closed", 1, 1, 2)
     engine.dispose()
