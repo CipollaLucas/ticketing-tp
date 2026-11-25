@@ -122,3 +122,28 @@ def test_colliding_idempotency_key_rejected(environment):
     assert client.post(url, json=command, headers=auth()).status_code == 200
     assert client.post(url, json=command | {"action": "close"},
                        headers=auth()).status_code == 409
+
+
+def test_missing_service_configuration_fails_closed(environment, monkeypatch):
+    client, _ = environment
+    monkeypatch.setattr(settings, "events_internal_token", "")
+    response = client.get(
+        f"/api/v1/internal/sales/gates/{uuid4()}", headers=auth(),
+    )
+    assert response.status_code == 503
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_stale_version_does_not_mutate_gate(environment):
+    client, engine = environment
+    event_id = uuid4()
+    seed(engine, event_id)
+    url = f"/api/v1/internal/sales/gates/{event_id}"
+    response = client.post(url + "/commands", headers=auth(), json={
+        "command_id": str(uuid4()), "action": "open",
+        "expected_version": 1, "event_revision": 1,
+    })
+    assert response.status_code == 409
+    state = client.get(url, headers=auth())
+    assert state.json()["state"] == "closed"
+    assert state.json()["version"] == 0
