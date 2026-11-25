@@ -91,7 +91,8 @@ def main() -> None:
         assert refreshed.value.status == 200, (
             f"React catalog refresh returned {refreshed.value.status}"
         )
-        event_select = page.get_by_label("Evento", exact=True)
+        event_select = page.get_by_role("combobox", name="Evento de compra")
+        expect(event_select).to_be_visible(timeout=15000)
         target_option = event_select.locator("option", has_text=name)
         try:
             expect(target_option).to_have_count(1, timeout=15000)
@@ -103,13 +104,15 @@ def main() -> None:
             visible_options = event_select.locator("option").all_text_contents()
             raise AssertionError(
                 "Gateway returned published event but React did not render it. "
-                f"Visible options: {visible_options}"
+                f"Visible options: {visible_options}; "
+                f"UI message: {page.locator('.core-workspace .notice').all_text_contents()}"
             ) from None
         event_select.select_option(label=target_option.inner_text())
-        expect(page.get_by_label("Zona", exact=True)).to_be_visible(timeout=15000)
-        page.get_by_label("Zona", exact=True).select_option(
-            label=page.get_by_label("Zona", exact=True).locator("option", has_text="H5 General").inner_text()
-        )
+        zone_select = page.get_by_role("combobox", name="Zona de compra")
+        expect(zone_select).to_be_visible(timeout=15000)
+        zone_option = zone_select.locator("option", has_text="H5 General")
+        expect(zone_option).to_have_count(1, timeout=15000)
+        zone_select.select_option(label=zone_option.inner_text())
         page.get_by_role("button", name="Confirmar compra simulada").click()
         expect(page.get_by_text("Compra simulada confirmada y registrada en PostgreSQL.")).to_be_visible(timeout=20000)
         expect(page.get_by_text("ORDEN CONFIRMADA")).to_be_visible()
