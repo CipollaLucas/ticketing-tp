@@ -12,9 +12,11 @@ from sqlalchemy.orm import Session
 
 from events_service.application import public_catalog, public_event_detail
 from events_service.commands import router as protected_router
+from events_service.http_audit import install_http_audit
 from events_service.persistence import SqlAlchemyEventReader, engine
 
 app = FastAPI(title="Ticketing Events Service (Preview)", version="0.1.0")
+install_http_audit(app)
 app.include_router(protected_router)
 
 
