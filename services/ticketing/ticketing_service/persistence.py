@@ -191,6 +191,12 @@ class SqlAlchemyGateUnitOfWork:
             return None
         return GateState(row.event_id, cast(SaleState, row.state), row.version, row.event_revision)
 
+    def confirmed_order_exists(self, event_id: UUID) -> bool:
+        # Invoked ONLY after lock_gate while this transaction holds FOR UPDATE.
+        return self.db.scalar(select(OrderRow.id).where(
+            OrderRow.event_id == event_id, OrderRow.status == "confirmed",
+        ).limit(1)) is not None
+
     def save(self, command: GateCommand, state: GateState) -> None:
         row = self.db.get(SaleGateRow, state.event_id)
         assert row is not None
