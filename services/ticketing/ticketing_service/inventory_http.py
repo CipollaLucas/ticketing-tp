@@ -98,7 +98,7 @@ def inventory_snapshot(db: Session, event_id: UUID) -> InventoryResponse:
         ZoneResponse(
             id=zone.id, name=zone.name, mode=zone.mode, price_minor=zone.price_minor,
             currency=zone.currency, capacity=zone.capacity,
-            available=zone.available if zone.mode == "general" else sum(
+            available=zone.available if zone.available is not None else sum(
                 int(seat.available) for seat in by_zone[zone.id]
             ),
             seats=by_zone.get(zone.id, []),
