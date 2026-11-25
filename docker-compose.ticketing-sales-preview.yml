@@ -1,0 +1,7 @@
+# Explicit preview overlay, only with docker-compose.yml + docker-compose.ticketing.yml.
+# No public sale commands without opt-in and a 32+ char Events service credential.
+services:
+  ticketing:
+    environment:
+      SALE_COMMANDS_ENABLED: "true"
+      EVENTS_INTERNAL_TOKEN: ${H4_EVENTS_INTERNAL_TOKEN:?Provide a random 32+ character H4_EVENTS_INTERNAL_TOKEN}
