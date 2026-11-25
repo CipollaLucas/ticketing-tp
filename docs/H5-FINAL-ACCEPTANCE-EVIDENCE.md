@@ -22,6 +22,7 @@ The PR head commits below are verified merged in GitHub, with the cited CI workf
 | Operational rollback runbook | [#98](https://github.com/CipollaLucas/ticketing-tp/pull/98) | `a1272329b184` | [45653150201](https://github.com/CipollaLucas/ticketing-tp/actions/runs/45653150201) |
 | Synthetic post-write abort guard | [#99](https://github.com/CipollaLucas/ticketing-tp/pull/99) | `f9c531e9a491` | [45653893881](https://github.com/CipollaLucas/ticketing-tp/actions/runs/45653893881) |
 | React-to-OpenAPI method/route ownership | [#100](https://github.com/CipollaLucas/ticketing-tp/pull/100) | `46ead9499b22` | [45654732837](https://github.com/CipollaLucas/ticketing-tp/actions/runs/45654732837) |
+| Explicit Gateway fail-closed/security probe matrix | [#105](https://github.com/CipollaLucas/ticketing-tp/pull/105) | `f0d2bf1a5ab2` | [45660017482](https://github.com/CipollaLucas/ticketing-tp/actions/runs/45660017482) |
 | Lost-ACK publish/unpublish recovery (replacement for unmerged #82) | [#103](https://github.com/CipollaLucas/ticketing-tp/pull/103) | `0299fc6de7ec` | [45658053960](https://github.com/CipollaLucas/ticketing-tp/actions/runs/45658053960) |
 | Zone/gate concurrent serialization (replacement) | [#101](https://github.com/CipollaLucas/ticketing-tp/pull/101) | `9ac655a98a95` | [45655559719](https://github.com/CipollaLucas/ticketing-tp/actions/runs/45655559719) |
 
@@ -57,6 +58,10 @@ Identity, Events and Ticketing audit request ID, method, route, result and elaps
 PR #103 is merged (merge SHA `8e4963dfcadb56920d3c5c17ade29c4751f6192b`). Run [45658053960](https://github.com/CipollaLucas/ticketing-tp/actions/runs/45658053960) is `success` with all twelve jobs successful, including `h4-three-service-live` and `h5-gateway-stage-i`. The dedicated H4-only fault overlay simulates a successful Ticketing gate write whose first acknowledgement is replaced with HTTP 503; the next publish/unpublish call must recover without incrementing gate versions or duplicating commands. The old PR #82 was explicitly closed unmerged after this replacement, and the H5 normal gateway remains isolated from the H4 proxy.
 
 **Not proven:** actual socket termination, partial TCP frames, process crash mid-transaction or operational rollback against a migrated real Legacy database. These omissions must remain visible at acceptance.
+
+## Latest Gateway security reconciliation
+
+Merged PR #105 (merge `ff3c3a49fa01897a0921cbc4d1363698fa52712f`) adds H5 real HTTP checks: private endpoints return 404 despite forged service headers; unknown API routes return 503, unknown non-API routes 404; Identity rejects missing/invalid bearer with 401; fake secrets are not echoed in selected responses. Run [45660017482](https://github.com/CipollaLucas/ticketing-tp/actions/runs/45660017482) completed all twelve CI jobs successfully. Coverage is **bounded to selected routes and statuses**, not comprehensive pentesting or production readiness. Review dispositions in `docs/H5-TECHNICAL-ACCEPTANCE-DECISION.md`.
 
 ## Technical decision (pending review)
 
