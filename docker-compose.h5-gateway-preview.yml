@@ -16,3 +16,15 @@ services:
       h4-ticketing:
         condition: service_healthy
     restart: "no"
+
+  h5-gateway-smoke:
+    build: ./services/ticketing
+    environment:
+      DATABASE_URL: postgresql+psycopg://h4_ticketing:h4-test-only@h4-ticketing-db:5432/h4_ticketing_test
+      H5_DISPOSABLE_UAT: "yes"
+      H5_GATEWAY_URL: http://h5-gateway:8080
+      H3_TEST_PASSWORD: ${H3_TEST_PASSWORD:?Set a random H3_TEST_PASSWORD}
+    depends_on:
+      h5-gateway:
+        condition: service_started
+    entrypoint: ["python", "h5_gateway_smoke.py"]
