@@ -1,4 +1,5 @@
 """Fail-closed outbound HTTP adapter for Ticketing's private sale-state API."""
+from typing import Literal
 from uuid import UUID
 from urllib.parse import urlsplit
 
@@ -16,7 +17,7 @@ from events_service.sales_port import (
 class GateResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
     event_id: UUID
-    state: str
+    state: Literal["open", "closed"]
     version: int
     event_revision: int
 
