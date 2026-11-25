@@ -35,6 +35,7 @@ class PublicationUnitOfWork(Protocol):
     def event_revision(self, event_id: UUID) -> int: ...
     def persist_intent(self, intent: PublicationIntent) -> None: ...
     def bind_gate_version(self, event_id: UUID, version: int) -> None: ...
+    def mark_metadata_published(self, event_id: UUID, revision: int, now: datetime) -> None: ...
     def commit(self) -> None: ...
     def rollback(self) -> None: ...
 
@@ -59,6 +60,15 @@ def prepare_publication(
             raise PublicationRejected(403, "Event owner role required")
         if actor_role != "administrator" and actor_id != event.owner_id:
             raise PublicationRejected(403, "Resource belongs to another user")
+        previous = unit.existing_intent(event_id)
+        if (
+            event.status == "published"
+            and previous is not None
+            and previous.phase == "metadata_published"
+            and unit.event_revision(event_id) == previous.event_revision
+        ):
+            unit.commit()
+            return previous
         if event.status != "draft":
             raise PublicationRejected(409, "Event is not a draft")
         if (
@@ -67,7 +77,6 @@ def prepare_publication(
             or event.end_at.astimezone(UTC) <= event.start_at.astimezone(UTC)
         ):
             raise PublicationRejected(422, "Publication requires valid future metadata")
-        previous = unit.existing_intent(event_id)
         if previous is not None:
             if previous.phase != "prepared":
                 raise PublicationRejected(409, "Publication already in progress")
@@ -132,6 +141,59 @@ def record_closed_gate_snapshot(
         return PublicationIntent(
             intent.command_id, intent.event_id, intent.event_revision,
             intent.phase, gate.version,
+        )
+    except Exception:
+        unit.rollback()
+        raise
+
+
+def commit_published_metadata(
+    unit: PublicationUnitOfWork,
+    event_id: UUID,
+    actor_id: UUID,
+    actor_role: str,
+    now: datetime,
+) -> PublicationIntent:
+    """Commit metadata first; ONLY the later remote command may open the gate.
+
+    This operation never contacts Ticketing and is not exposed directly over
+    HTTP. The durable command envelope survives a process crash, allowing the
+    future coordinator to replay the exact Ticketing CAS command.
+    """
+    try:
+        event = unit.lock_event(event_id)
+        if event is None:
+            raise PublicationRejected(404, "Event not found")
+        if actor_role not in {"event_owner", "administrator"}:
+            raise PublicationRejected(403, "Event owner role required")
+        if actor_role != "administrator" and event.owner_id != actor_id:
+            raise PublicationRejected(403, "Resource belongs to another user")
+        intent = unit.existing_intent(event_id)
+        if intent is None or intent.expected_gate_version is None:
+            raise PublicationRejected(409, "Closed gate snapshot required")
+        revision = unit.event_revision(event_id)
+        if event.status == "published" and intent.phase == "metadata_published":
+            if revision != intent.event_revision:
+                raise PublicationRejected(409, "Inconsistent publication revision")
+            unit.commit()
+            return intent
+        if (
+            event.status != "draft"
+            or intent.phase != "prepared"
+            or revision + 1 != intent.event_revision
+        ):
+            raise PublicationRejected(409, "Publication metadata has changed")
+        if (
+            not event.description.strip()
+            or event.start_at.astimezone(UTC) <= now.astimezone(UTC)
+            or event.end_at.astimezone(UTC) <= event.start_at.astimezone(UTC)
+        ):
+            raise PublicationRejected(422, "Publication requires valid future metadata")
+        unit.mark_metadata_published(event_id, intent.event_revision, now.astimezone(UTC))
+        unit.commit()
+        return PublicationIntent(
+            intent.command_id, intent.event_id, intent.event_revision,
+            "metadata_published", intent.expected_gate_version,
         )
     except Exception:
         unit.rollback()
