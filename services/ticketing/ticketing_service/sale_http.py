@@ -4,8 +4,7 @@ Only the Events service may use the internal credential; event ownership and
 actor authorization remain Events/Identity responsibilities.
 """
 from hmac import compare_digest
-from typing import cast
-from typing import Annotated, Literal
+from typing import Annotated, Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
