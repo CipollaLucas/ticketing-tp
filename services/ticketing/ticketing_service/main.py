@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
+from ticketing_service.inventory_http import router as inventory_router
 from ticketing_service.persistence import engine
 from ticketing_service.provision_http import router as provision_router
 from ticketing_service.purchase_http import router as purchase_router
@@ -14,6 +15,7 @@ app = FastAPI(title="Ticketing Service — H4 foundation", version="0.1.0")
 app.include_router(sale_router)
 app.include_router(provision_router)
 app.include_router(purchase_router)
+app.include_router(inventory_router)
 
 
 @app.get("/health")
