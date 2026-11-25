@@ -8,12 +8,11 @@ from identity.main import app
 
 
 def test_request_id_status_duration_and_no_query_leak(caplog):
-    with caplog.at_level(logging.INFO, logger="identity.http"):
-        with TestClient(app) as client:
-            response = client.get(
-                "/path-not-exposed?password=never-log-me",
-                headers={"X-Request-ID": "h5-correlation-123", "Authorization": "Bearer secret"},
-            )
+    with caplog.at_level(logging.INFO, logger="identity.http"), TestClient(app) as client:
+        response = client.get(
+            "/path-not-exposed?password=never-log-me",
+            headers={"X-Request-ID": "h5-correlation-123", "Authorization": "Bearer secret"},
+        )
     assert response.status_code == 404
     assert response.headers["x-request-id"] == "h5-correlation-123"
     lines = [record.message for record in caplog.records if record.name == "identity.http"]
@@ -30,11 +29,10 @@ def test_request_id_status_duration_and_no_query_leak(caplog):
 
 
 def test_untrusted_request_id_replaced(caplog):
-    with caplog.at_level(logging.INFO, logger="identity.http"):
-        with TestClient(app) as client:
-            response = client.get(
-                "/path-not-exposed", headers={"X-Request-ID": "not a safe id"}
-            )
+    with caplog.at_level(logging.INFO, logger="identity.http"), TestClient(app) as client:
+        response = client.get(
+            "/path-not-exposed", headers={"X-Request-ID": "not a safe id"}
+        )
     assert response.status_code == 404
     correlation = response.headers["x-request-id"]
     assert re.fullmatch(r"[a-f0-9]{32}", correlation)
