@@ -419,6 +419,20 @@ jobs:
         env:
           H5_DISPOSABLE_BROWSER_UAT: "yes"
         run: python scripts/h5_react_browser_uat.py
+      - name: Restart only H5 application containers (retain all disposable PostgreSQL)
+        run: |
+          docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml restart h3-identity h3-events h4-ticketing
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8091/health >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml up -d --wait h3-identity h3-events h4-ticketing h5-gateway
+      - name: Verify persistence and idempotency after H5 restarts
+        env:
+          H5_DISPOSABLE_RESTART_UAT: "yes"
+        run: python scripts/verify_h5_restart.py "$RUNNER_TEMP/h5-smoke.log"
       - name: Upload browser screenshots for review
         if: always()
         uses: actions/upload-artifact@v4
