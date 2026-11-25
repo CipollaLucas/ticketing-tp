@@ -117,7 +117,7 @@ def dump_source(container_id, user, database, destination):
     return hashlib.sha256(destination.read_bytes()).hexdigest()
 
 
-def restore_isolated(kind, archive, expected_counts):
+def restore_isolated(kind, archive, expected_counts, *, tables=None):
     # Separate, throwaway PostgreSQL. No host ports, no network, no application mounts.
     name = "ticketing-verify-" + kind + "-" + secrets.token_hex(5)
     password = secrets.token_urlsafe(24)
@@ -167,7 +167,9 @@ def restore_isolated(kind, archive, expected_counts):
             "--exit-on-error", "--no-owner", "--no-acl", "/tmp/verify.dump",
         ], timeout=180, operation=f"pg_restore {kind} in temporary PostgreSQL")
         print(f"VERIFY {kind}: checking restored table counts", flush=True)
-        actual = source_table_counts(name, "verify", "verify", TABLES[kind])
+        actual = source_table_counts(
+            name, "verify", "verify", tables if tables is not None else TABLES[kind]
+        )
         if actual != expected_counts:
             raise BackupError(
                 f"Restore counts differ for {kind}; source may have changed during dump"

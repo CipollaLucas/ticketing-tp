@@ -442,6 +442,10 @@ jobs:
         env:
           H5_DISPOSABLE_RESTART_UAT: "yes"
         run: python scripts/verify_h5_restart.py "$RUNNER_TEMP/h5-smoke.log"
+      - name: Verify offline restores of all three disposable PostgreSQL databases
+        env:
+          H5_DISPOSABLE_RESTORE_UAT: "yes"
+        run: python scripts/verify_h5_three_db_restore.py "$RUNNER_TEMP/h5-smoke.log"
       - name: Upload browser screenshots for review
         if: always()
         uses: actions/upload-artifact@v4
