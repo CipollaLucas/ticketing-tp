@@ -7,7 +7,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from ticketing_service.inventory_http import (
-    InventoryResponse, PublishedEventVerifier, inventory_session, verifier,
+    InventoryResponse,
+    PublishedEventVerifier,
+    inventory_session,
+    verifier,
 )
 from ticketing_service.main import app
 
