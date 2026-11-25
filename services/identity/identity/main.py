@@ -1,5 +1,6 @@
 """Standalone Identity FastAPI app, independently deployable on port 8001."""
 import logging
+import re
 from time import perf_counter
 from uuid import uuid4
 
@@ -15,20 +16,30 @@ from identity.database import engine
 app = FastAPI(title="Ticketing Identity Service", version="0.1.0")
 app.include_router(router)
 logger = logging.getLogger("identity.http")
+_SAFE_ID = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
 
 
 @app.middleware("http")
 async def audit(request: Request, call_next):
     started = perf_counter()
-    request_id = request.headers.get("X-Request-ID") or str(uuid4())
-    response = await call_next(request)
-    response.headers["X-Request-ID"] = request_id
-    logger.info(
-        "request_id=%s method=%s path=%s status=%s duration_ms=%.2f",
-        request_id, request.method, request.url.path, response.status_code,
-        (perf_counter() - started) * 1000,
-    )
-    return response
+    raw_id = request.headers.get("X-Request-ID", "")
+    request_id = raw_id if _SAFE_ID.fullmatch(raw_id) else uuid4().hex
+    status = 500
+    try:
+        response = await call_next(request)
+        status = response.status_code
+        response.headers["X-Request-ID"] = request_id
+        return response
+    finally:
+        # Never log query parameters, bodies, Authorization or cookies.
+        logger.info(
+            "request_id=%s method=%s path=%s status=%s duration_ms=%.2f",
+            request_id,
+            request.method,
+            request.url.path,
+            status,
+            (perf_counter() - started) * 1000,
+        )
 
 
 @app.exception_handler(RequestValidationError)
