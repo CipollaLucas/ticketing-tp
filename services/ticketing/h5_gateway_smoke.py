@@ -117,6 +117,20 @@ def main() -> None:
             "Publish through Gateway",
         )
         assert published["status"] == "published"
+        too_late_zone = gateway.post(
+            f"/api/v1/events/{event_id}/zones",
+            json={
+                "name": "Late Zone",
+                "mode": "general",
+                "price_minor": 2500,
+                "currency": "ARS",
+                "capacity": 1,
+            },
+            headers=owner_auth,
+        )
+        assert too_late_zone.status_code in {404, 409}, (
+            f"Published event must reject new zones: {too_late_zone.status_code}"
+        )
         assert checked(gateway.get(f"/api/v1/events/{event_id}"), 200, "Public event")["id"] == event_id
         catalog = checked(gateway.get("/api/v1/events"), 200, "Public catalog")
         assert any(item["id"] == event_id for item in catalog["items"])
