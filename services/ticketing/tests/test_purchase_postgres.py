@@ -13,6 +13,7 @@ from alembic import command
 from ticketing_service.application import change_sale_gate
 from ticketing_service.domain import GateCommand
 from ticketing_service.persistence import (
+    OrderItemRow,
     OrderRow,
     SaleGateRow,
     SqlAlchemyGateUnitOfWork,
@@ -67,15 +68,12 @@ def state(engine, event, zone):
         order_count = db.scalar(select(func.count()).select_from(OrderRow).where(
             OrderRow.event_id == event,
         ))
-        ticket_count = db.scalar(select(func.count()).select_from(TicketRow).join(
-            OrderRow, TicketRow.order_item_id.in_(
-                select(__import__("ticketing_service.persistence", fromlist=["OrderItemRow"])
-                       .OrderItemRow.id).where(
-                    __import__("ticketing_service.persistence", fromlist=["OrderItemRow"])
-                    .OrderItemRow.order_id == OrderRow.id,
-                ),
-            ),
-        ).where(OrderRow.event_id == event))
+        ticket_count = db.scalar(
+            select(func.count()).select_from(TicketRow)
+            .join(OrderItemRow, TicketRow.order_item_id == OrderItemRow.id)
+            .join(OrderRow, OrderItemRow.order_id == OrderRow.id)
+            .where(OrderRow.event_id == event)
+        )
         return gate.state, stock, order_count, ticket_count
 
 
