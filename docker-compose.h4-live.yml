@@ -23,6 +23,10 @@ services:
       EVENTS_INTERNAL_TOKEN: ${H4_SALES_TOKEN:?Set random H4_SALES_TOKEN}
       GATE_PROVISIONING_ENABLED: "true"
       SALE_COMMANDS_ENABLED: "true"
+      PURCHASES_ENABLED: "true"
+      IDENTITY_SERVICE_URL: http://h3-identity:8001
+      EVENTS_SERVICE_URL: http://h3-events:8002
+      IDENTITY_INTERNAL_TOKEN: ${H3_INTERNAL_TOKEN:?Set random H3_INTERNAL_TOKEN}
     depends_on:
       h4-ticketing-db:
         condition: service_healthy
