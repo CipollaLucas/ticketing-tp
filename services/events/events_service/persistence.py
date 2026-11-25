@@ -116,3 +116,41 @@ class SqlAlchemyDraftWriter:
 
     def rollback(self) -> None:
         self.session.rollback()
+
+
+class SqlAlchemyDraftEditPort:
+    """Events-owned locked mutation, no cross-context database access."""
+
+    def __init__(self, session: Session):
+        self.session = session
+
+    def locked_event(self, event_id: UUID) -> EventRecord | None:
+        row = self.session.scalar(
+            select(EventRow).where(EventRow.id == event_id).with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if row is None:
+            return None
+        return EventRecord(
+            id=row.id, owner_id=row.owner_id, name=row.name,
+            description=row.description, venue=row.venue,
+            start_at=row.start_at, end_at=row.end_at, status=row.status,
+            created_at=row.created_at, updated_at=row.updated_at,
+        )
+
+    def save(self, event: EventRecord) -> None:
+        row = self.session.get(EventRow, event.id)
+        assert row is not None
+        row.name = event.name
+        row.description = event.description
+        row.venue = event.venue
+        row.start_at = event.start_at
+        row.end_at = event.end_at
+        assert event.updated_at is not None
+        row.updated_at = event.updated_at
+
+    def commit(self) -> None:
+        self.session.commit()
+
+    def rollback(self) -> None:
+        self.session.rollback()

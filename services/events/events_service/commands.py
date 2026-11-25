@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from events_service.application import owned_events
 from events_service.drafts import DraftInput, create_draft
+from events_service.edit_draft import EditEventError, EventPatch, edit_draft
 from events_service.gate_readiness import GateReadinessDenied, verify_gate_candidate
 from events_service.identity import (
     HttpIdentityAdapter,
@@ -17,7 +18,11 @@ from events_service.identity import (
     IdentityUnauthorized,
     IdentityUnavailable,
 )
-from events_service.persistence import SqlAlchemyDraftWriter, SqlAlchemyEventReader
+from events_service.persistence import (
+    SqlAlchemyDraftEditPort,
+    SqlAlchemyDraftWriter,
+    SqlAlchemyEventReader,
+)
 from events_service.provision_http import HttpClosedGateProvisioner
 from events_service.provisioning import ClosedGateProvisionPort, provision_verified_draft
 from events_service.sales_port import SaleGateUnavailable
@@ -35,6 +40,15 @@ class CreateEventRequest(BaseModel):
     venue: str = Field(min_length=1, max_length=300)
     start_at: AwareDatetime
     end_at: AwareDatetime
+
+
+class EventPatchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=5000)
+    venue: str | None = Field(default=None, min_length=1, max_length=300)
+    start_at: AwareDatetime | None = None
+    end_at: AwareDatetime | None = None
 
 
 def identity_port() -> IdentityPort:
@@ -259,4 +273,49 @@ def provision_event_gate(
         "state": result.state.state,
         "version": result.state.version,
         "event_revision": result.state.event_revision,
+    }
+
+
+@router.patch("/events/{event_id}")
+def update_event(
+    event_id: UUID,
+    payload: EventPatchRequest,
+    response: Response,
+    request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
+    verifier: Annotated[IdentityPort, Depends(identity_port)],
+    db: Annotated[Session, Depends(session_scope)],
+):
+    """Stage I draft-only metadata edit; no Ticketing provisioning or publish."""
+    response.headers["Cache-Control"] = "no-store"
+    if not settings.protected_drafts_enabled:
+        raise HTTPException(404, "Not found", headers=NO_STORE)
+    if credentials is None:
+        raise HTTPException(
+            401, "Invalid or expired credentials",
+            headers={**NO_STORE, "WWW-Authenticate": "Bearer"},
+        )
+    try:
+        principal = verifier.introspect(
+            credentials.credentials, request.headers.get("X-Request-ID"),
+        )
+    except IdentityUnauthorized as error:
+        raise HTTPException(401, "Invalid or expired credentials", headers=NO_STORE) from error
+    except IdentityUnavailable as error:
+        raise HTTPException(503, "Identity verification unavailable", headers=NO_STORE) from error
+    if principal.role not in {"event_owner", "administrator"}:
+        raise HTTPException(403, "Event owner role required", headers=NO_STORE)
+    try:
+        event = edit_draft(
+            event_id, principal.id, principal.role,
+            EventPatch(payload.model_dump(exclude_unset=True)),
+            SqlAlchemyDraftEditPort(db), datetime.now(UTC),
+        )
+    except EditEventError as error:
+        raise HTTPException(error.status, error.detail, headers=NO_STORE) from error
+    return {
+        "id": event.id, "owner_id": event.owner_id,
+        "name": event.name, "description": event.description, "venue": event.venue,
+        "start_at": event.start_at, "end_at": event.end_at, "status": event.status,
+        "created_at": event.created_at, "updated_at": event.updated_at,
     }
