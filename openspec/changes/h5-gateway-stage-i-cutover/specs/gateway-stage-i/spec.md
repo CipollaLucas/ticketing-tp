@@ -46,3 +46,7 @@ The system SHALL keep full Gateway/cutover disabled by default and SHALL provide
 ### Scenario: No approval
 - **WHEN** the new environment is built without an explicit cutover decision
 - **THEN** Legacy traffic and active data are unchanged and no commercial feature is activated.
+
+### Scenario: Three-role administrative authorization
+- **WHEN** the isolated Gateway UAT authenticates an administrator, owner and customer
+- **THEN** only the administrator may change another account's role, the customer remains unable to access management routes, and the administrator can see owner-managed events without accessing Legacy.
