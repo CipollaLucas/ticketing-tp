@@ -219,14 +219,14 @@ export default function CoreWorkspace() {
           <h2>Elegí tu evento.</h2>
           <button className="text-link" onClick={() => void run(refreshEvents)} disabled={busy}>Actualizar catálogo ↻</button>
           <label>Evento
-            <select value={eventId} onChange={e => setPurchaseEvent(e.target.value)}>
+            <select aria-label="Evento de compra" value={eventId} onChange={e => setPurchaseEvent(e.target.value)}>
               <option value="">Seleccionar evento</option>
               {events.map(event => <option key={event.id} value={event.id}>{event.name} · {formatEventDate(event.start_at)}</option>)}
             </select>
           </label>
           {!events.length && <p className="fine-print">Todavía no hay eventos futuros publicados. Ingresá como organizador para crear uno.</p>}
           {inventory && <label>Zona
-            <select value={zoneId} onChange={e => { setZoneId(e.target.value); setSelectedSeats([]); clearAttempt(); }}>
+            <select aria-label="Zona de compra" value={zoneId} onChange={e => { setZoneId(e.target.value); setSelectedSeats([]); clearAttempt(); }}>
               <option value="">Seleccionar zona</option>
               {inventory.zones.map(item => <option key={item.id} value={item.id}>{item.name} · {displayPrice(item.price_minor, item.currency)} · {item.available} disponibles</option>)}
             </select>
