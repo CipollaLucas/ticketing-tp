@@ -251,11 +251,10 @@ def test_historical_replay_after_gate_closure_never_reallocates():
             SqlAlchemyPurchaseUnitOfWork(db),
         )
     assert missing is None
-    with Session(engine) as db:
-        with pytest.raises(PurchaseKeyConflict):
-            replay_confirmed_purchase(
-                PurchaseIntent(event_id, (TicketSelection(zone_id, 1),)),
-                customer, "historical-key", SqlAlchemyPurchaseUnitOfWork(db),
-            )
+    with Session(engine) as db, pytest.raises(PurchaseKeyConflict):
+        replay_confirmed_purchase(
+            PurchaseIntent(event_id, (TicketSelection(zone_id, 1),)),
+            customer, "historical-key", SqlAlchemyPurchaseUnitOfWork(db),
+        )
     assert state(engine, event_id, zone_id) == ("closed", 1, 1, 2)
     engine.dispose()
