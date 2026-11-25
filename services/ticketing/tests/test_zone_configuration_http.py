@@ -8,9 +8,9 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
+from ticketing_service.inventory_http import inventory_session
 from ticketing_service.main import app
 from ticketing_service.persistence import Base, SeatRow, ZoneRow
-from ticketing_service.inventory_http import inventory_session
 from ticketing_service.settings import settings
 from ticketing_service.zone_configuration_http import draft_verifier
 
