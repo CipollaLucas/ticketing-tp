@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from alembic import command
 from ticketing_service.application import change_sale_gate
 from ticketing_service.domain import GateCommand
+from ticketing_service.no_sales_close import ConfirmedSalesExist, close_gate_without_sales
 from ticketing_service.persistence import (
     OrderItemRow,
     OrderRow,
@@ -164,5 +165,60 @@ def test_parallel_same_customer_and_key_allocates_once():
         results = [future.result(timeout=15) for future in futures]
     assert {result.order.id for result in results} == {results[0].order.id}
     assert sorted(result.replayed for result in results) == [False, True]
+    assert state(engine, event, zone) == ("open", 1, 1, 1)
+    engine.dispose()
+
+
+def no_sales_close(engine, event):
+    with Session(engine) as db:
+        return close_gate_without_sales(
+            GateCommand(uuid4(), event, "close", 1, 1),
+            SqlAlchemyGateUnitOfWork(db),
+        )
+
+
+def test_no_sales_close_before_purchase_rejects_new_order():
+    assert DB_URL is not None
+    engine = create_engine(DB_URL)
+    event, zone = setup_event(engine)
+    assert no_sales_close(engine, event).state == "closed"
+    with pytest.raises(PurchaseError):
+        purchase(
+            engine, PurchaseIntent(event, (TicketSelection(zone, 1),)),
+            uuid4(), "late-after-no-sales-close",
+        )
+    assert state(engine, event, zone) == ("closed", 4, 0, 0)
+    engine.dispose()
+
+
+def test_purchase_commits_first_no_sales_close_refuses_and_keeps_gate_open():
+    assert DB_URL is not None
+    engine = create_engine(DB_URL, pool_size=5)
+    event, zone = setup_event(engine, capacity=2)
+    locked = Event()
+    release = Event()
+
+    class PausedPurchase(SqlAlchemyPurchaseUnitOfWork):
+        def allocate(self, customer_id, key, intent):
+            result = super().allocate(customer_id, key, intent)
+            locked.set()
+            assert release.wait(timeout=10)
+            return result
+
+    def purchase_before_close():
+        with Session(engine) as db:
+            return purchase_tickets(
+                PurchaseIntent(event, (TicketSelection(zone, 1),)),
+                uuid4(), "purchase-first", PausedPurchase(db),
+            )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        buyer = pool.submit(purchase_before_close)
+        assert locked.wait(timeout=10)
+        closer = pool.submit(no_sales_close, engine, event)
+        release.set()
+        assert not buyer.result(timeout=15).replayed
+        with pytest.raises(ConfirmedSalesExist):
+            closer.result(timeout=15)
     assert state(engine, event, zone) == ("open", 1, 1, 1)
     engine.dispose()
