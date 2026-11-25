@@ -15,6 +15,8 @@ from pydantic import (
     model_validator,
 )
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -142,10 +144,30 @@ def insert_zone(db: Session, event_id: UUID, payload: ZoneInput) -> ZoneResponse
     validate_zone(spec)
     for seat in payload.seats:
         validate_seat(SeatSpec(uuid4(), zone_id, seat.label))
-    # Gate lock serializes local changes against new purchases and gate transitions.
-    # If gate does not exist yet the zone stays unsellable until provisioned.
-    gate = db.scalar(select(SaleGateRow).where(SaleGateRow.event_id == event_id).with_for_update())
-    if gate is not None and gate.state != "closed":
+    # Establish the shared lock row before writing inventory. Publication uses
+    # the same sale_gates row for its CAS opening command. ON CONFLICT DO
+    # NOTHING never resets an already-open gate and concurrent provisioning
+    # serializes at the unique event_id constraint in PostgreSQL.
+    dialect = db.get_bind().dialect.name
+    if dialect == "postgresql":
+        insert_gate = pg_insert(SaleGateRow)
+    elif dialect == "sqlite":
+        insert_gate = sqlite_insert(SaleGateRow)  # in-memory unit tests
+    else:
+        raise HTTPException(503, "Unsupported inventory transaction backend", headers=NO_STORE)
+    db.execute(
+        insert_gate.values(
+            event_id=event_id, state="closed", version=0, event_revision=0,
+        ).on_conflict_do_nothing(index_elements=[SaleGateRow.event_id])
+    )
+    gate = db.scalar(
+        select(SaleGateRow)
+        .where(SaleGateRow.event_id == event_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if gate is None or gate.state != "closed":
+        db.rollback()
         raise HTTPException(409, "Event sales already open", headers=NO_STORE)
     zone = ZoneRow(
         id=zone_id,
