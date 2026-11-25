@@ -46,10 +46,11 @@ class HttpTicketingGateAdapter:
     def _request(
         self, method: str, event_id: UUID, payload: dict[str, object] | None,
         request_id: str | None,
+        *, conditional_close: bool = False,
     ) -> SaleGateState:
         endpoint = f"/api/v1/internal/sales/gates/{event_id}"
         if method == "POST":
-            endpoint += "/commands"
+            endpoint += "/close-without-sales" if conditional_close else "/commands"
         headers = {"X-Internal-Service-Token": self.service_token}
         if request_id:
             headers["X-Request-ID"] = request_id
@@ -82,6 +83,31 @@ class HttpTicketingGateAdapter:
             event_id=parsed.event_id, state=parsed.state,
             version=parsed.version, event_revision=parsed.event_revision,
         )
+
+    def close_without_sales(
+        self, value: SaleGateCommand, request_id: str | None = None,
+    ) -> SaleGateState:
+        if value.action != "close" or value.expected_version < 0 or value.event_revision < 0:
+            raise SaleGateRejected("Invalid conditional close command")
+        payload: dict[str, object] = {
+            "command_id": str(value.command_id),
+            "action": "close",
+            "expected_version": value.expected_version,
+            "event_revision": value.event_revision,
+        }
+        # A distinct endpoint prevents a generic close command from bypassing
+        # the no-confirmed-orders rule for Stage I unpublish.
+        result = self._request(
+            "POST", value.event_id, payload, request_id,
+            conditional_close=True,
+        )
+        if (
+            result.version != value.expected_version + 1
+            or result.state != "closed"
+            or result.event_revision != value.event_revision
+        ):
+            raise SaleGateUnavailable("Unconfirmed conditional Ticketing close")
+        return result
 
     def state(self, event_id: UUID, request_id: str | None = None) -> SaleGateState:
         return self._request("GET", event_id, None, request_id)
