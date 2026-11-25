@@ -6,6 +6,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from ticketing_service.persistence import engine
 from ticketing_service.provision_http import router as provision_router
+from ticketing_service.purchase_http import router as purchase_router
 from ticketing_service.sale_http import router as sale_router
 from ticketing_service.settings import settings
 
