@@ -1,5 +1,5 @@
 """PostgreSQL gate provisioning with INSERT ON CONFLICT DO NOTHING."""
-from typing import Literal, cast
+from typing import cast
 from uuid import UUID
 
 from sqlalchemy import select
