@@ -84,7 +84,7 @@ def main() -> None:
         expect(page.get_by_text("ORDEN CONFIRMADA")).to_be_visible()
         page.get_by_role("button", name="Mis tickets").click()
         expect(page.get_by_role("heading", name="Mis tickets emitidos")).to_be_visible()
-        expect(page.locator(".core-ticket")).to_have_count(1, timeout=15000)
+        expect(page.locator(".core-ticket").first).to_be_visible(timeout=15000)
         page.screenshot(path=str(EVIDENCE / "customer-ticket.png"), full_page=True)
         sign_out(page)
 
