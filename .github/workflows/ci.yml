@@ -321,38 +321,41 @@ jobs:
           echo "H3_TEST_PASSWORD=$password" >> "$GITHUB_ENV"
       - name: Build independent Identity Events and Ticketing images
         run: |
-          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml build h3-identity h3-events h4-ticketing h4-live-smoke h4-confirmed-order-smoke h4-concurrent-http-smoke
+          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h4-fault.yml build h3-identity h3-events h4-ticketing h4-live-smoke h4-confirmed-order-smoke h4-concurrent-http-smoke h4-fault-proxy h4-fault-recovery-smoke
       - name: Start three disposable PostgreSQL databases
         run: |
-          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml up -d --wait h3-identity-db h3-events-db h4-ticketing-db
+          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h4-fault.yml up -d --wait h3-identity-db h3-events-db h4-ticketing-db
       - name: Apply independent schema migrations
         run: |
           for service in h3-identity h3-events h4-ticketing; do
-            docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml run --rm --no-deps "$service" alembic upgrade head
+            docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h4-fault.yml run --rm --no-deps "$service" alembic upgrade head
           done
       - name: Seed only disposable Identity users
         run: |
-          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml run --rm --no-deps h3-identity python -m identity.h3_contract_seed
+          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h4-fault.yml run --rm --no-deps h3-identity python -m identity.h3_contract_seed
       - name: Start three independent HTTP services
         run: |
-          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml up -d --wait h3-identity h4-ticketing h3-events
+          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h4-fault.yml up -d --wait h3-identity h4-ticketing h3-events
       - name: Run publish unpublish and republish contract over HTTP
         run: |
-          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml run --rm --no-deps h4-live-smoke
+          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h4-fault.yml run --rm --no-deps h4-live-smoke
       - name: Test confirmed order prevents unpublish through real Events HTTP
         run: |
-          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml run --rm --no-deps h4-confirmed-order-smoke
+          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h4-fault.yml run --rm --no-deps h4-confirmed-order-smoke
       - name: Race real HTTP purchase versus unpublish across three services
         run: |
-          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml run --rm --no-deps h4-concurrent-http-smoke
+          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h4-fault.yml run --rm --no-deps h4-concurrent-http-smoke
+      - name: Recover published and unpublished commands after injected lost ACK
+        run: |
+          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h4-fault.yml run --rm --no-deps h4-fault-recovery-smoke
       - name: Show service logs if unsuccessful
         if: failure()
         run: |
-          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml logs --tail 100 h3-identity h3-events h4-ticketing
+          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h4-fault.yml logs --tail 100 h3-identity h4-ticketing h4-fault-proxy h3-events
       - name: Remove ONLY this disposable project (no named volumes)
         if: always()
         run: |
-          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml down
+          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h4-fault.yml down
 
 
   h5-gateway-stage-i:
