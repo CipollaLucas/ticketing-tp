@@ -325,6 +325,11 @@ def update_event(
     }
 
 
+class PublishRequest(BaseModel):
+    """Legacy Stage I requires a strict empty object."""
+    model_config = ConfigDict(extra="forbid")
+
+
 def publication_ports() -> tuple[ClosedGateProvisionPort, SaleGatePort]:
     """Not reachable without a separate opt-in; private credentials only."""
     if not settings.publication_enabled:
@@ -347,6 +352,7 @@ def publication_ports() -> tuple[ClosedGateProvisionPort, SaleGatePort]:
 @router.post("/events/{event_id}/publish")
 def publish_event(
     event_id: UUID,
+    payload: PublishRequest,
     response: Response,
     request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
