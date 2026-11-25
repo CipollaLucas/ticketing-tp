@@ -405,7 +405,7 @@ jobs:
       - name: Install frontend packages and start Vite against H5 Gateway
         run: |
           cd frontend
-          npm ci
+          npm install --no-audit --no-fund
           VITE_API_PROXY_TARGET=http://127.0.0.1:8091 npm run dev -- --host 127.0.0.1 > "$RUNNER_TEMP/h5-vite.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/h5-vite.pid"
           cd ..
