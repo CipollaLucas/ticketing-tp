@@ -67,6 +67,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://h4_ticketing:h4-test-only@h4-ticketing-db:5432/h4_ticketing_test
       H4_DISPOSABLE_UAT: "yes"
+      H4_SALES_TOKEN: ${H4_SALES_TOKEN:?Set random H4_SALES_TOKEN}
       H3_IDENTITY_URL: http://h3-identity:8001
       H3_EVENTS_URL: http://h3-events:8002
       H4_TICKETING_URL: http://h4-ticketing:8003

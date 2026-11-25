@@ -19,7 +19,10 @@ from ticketing_service.purchase_admission import (
     PurchaseAdmissionDenied,
     PurchaseAdmissionUnavailable,
 )
-from ticketing_service.purchase_application import PurchaseOutcome, purchase_tickets
+from ticketing_service.purchase_application import (
+    purchase_tickets,
+    replay_confirmed_purchase,
+)
 from ticketing_service.purchase_persistence import SqlAlchemyPurchaseUnitOfWork
 from ticketing_service.sale_http import session_scope
 from ticketing_service.settings import settings
@@ -84,11 +87,19 @@ def create_order(
         customer = admission.customer(
             credentials.credentials, request.headers.get("X-Request-ID"),
         )
-        admission.public_event(event_id, datetime.now(UTC))
-        outcome: PurchaseOutcome = purchase_tickets(
+        # Identity is mandatory even for historical replay; Events is not.
+        # Re-check the customer-scoped key in PostgreSQL before authorizing
+        # a NEW purchase, so closed gates never cause duplicate allocation.
+        outcome = replay_confirmed_purchase(
             intent, customer.id, idempotency_key,
             SqlAlchemyPurchaseUnitOfWork(db),
         )
+        if outcome is None:
+            admission.public_event(event_id, datetime.now(UTC))
+            outcome = purchase_tickets(
+                intent, customer.id, idempotency_key,
+                SqlAlchemyPurchaseUnitOfWork(db),
+            )
     except PurchaseAdmissionDenied as error:
         raise HTTPException(403, str(error), headers=NO_STORE) from error
     except PurchaseAdmissionUnavailable as error:

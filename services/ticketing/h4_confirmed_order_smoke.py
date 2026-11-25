@@ -149,11 +149,41 @@ def main() -> None:
         assert len(replay["tickets"]) == 2
         assert {UUID(ticket["id"]) for ticket in replay["tickets"]} == ticket_ids
 
+        # Disposable-only administrative close: NOT Events unpublish (which
+        # correctly stays 409 when sales exist). This creates a closed gate
+        # so the HTTP historical replay is tested without new allocations.
+        internal = {"X-Internal-Service-Token": os.environ["H4_SALES_TOKEN"]}
+        closed = checked(ticketing.post(
+            f"/api/v1/internal/sales/gates/{event_id}/commands",
+            json={
+                "command_id": str(uuid4()), "action": "close",
+                "expected_version": 1, "event_revision": 1,
+            }, headers=internal,
+        ), 200, "Disposable administrative gate close")
+        assert (closed["state"], closed["version"]) == ("closed", 2)
+
+        after_close = checked(ticketing.post(
+            order_url, json=order_body, headers=purchase_headers,
+        ), 200, "Historical replay after sale gate closed")
+        assert after_close["replayed"] is True
+        assert UUID(after_close["id"]) == confirmed_id
+        assert {UUID(t["id"]) for t in after_close["tickets"]} == ticket_ids
+        fresh = ticketing.post(
+            order_url, json={"items": [{"zone_id": str(zone_id), "quantity": 1}]},
+            headers=purchase_headers | {"Idempotency-Key": "new-after-closed"},
+        )
+        assert fresh.status_code == 409, "Closed gate must block new sales"
+        with Session(engine) as db:
+            assert db.get(ZoneRow, zone_id).available == 1
+            assert db.scalar(select(func.count()).select_from(OrderRow).where(
+                OrderRow.event_id == event_id,
+            )) == 1
+
     print("PASS: Identity, Events and Ticketing purchase over real HTTP with verified customer")
     print("PASS: HTTP unpublish refuses confirmed orders twice with 409")
     print("PASS: Ticketing sale gate remains open v1 and Events remains published")
     print("PASS: order, two valid tickets and remaining capacity preserved")
-    print("PASS: historical purchase replay allocates no additional tickets")
+    print("PASS: historical purchase replay survives closed gate; new purchase blocked")
 
 
 if __name__ == "__main__":

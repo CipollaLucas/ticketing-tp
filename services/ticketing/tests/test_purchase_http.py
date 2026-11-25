@@ -56,6 +56,10 @@ def scenario(monkeypatch):
         ), replayed=len(calls) > 1)
 
     monkeypatch.setattr("ticketing_service.purchase_http.purchase_tickets", fake_purchase)
+    monkeypatch.setattr(
+        "ticketing_service.purchase_http.replay_confirmed_purchase",
+        lambda intent, customer_id, key, unit: None,
+    )
     app.dependency_overrides[admission_port] = lambda: customer
     app.dependency_overrides[session_scope] = lambda: None
     monkeypatch.setattr(settings, "purchases_enabled", True)
@@ -141,3 +145,32 @@ def test_missing_or_invalid_idempotency_key(scenario):
     response = client.post(url(event_id), json=payload(zone_id), headers=headers("bad key"))
     assert response.status_code == 422
     assert not calls and not admission.calls
+
+
+def test_historical_replay_does_not_depend_on_events_but_requires_identity(scenario, monkeypatch):
+    client, admission, calls, event_id, zone_id = scenario
+    from ticketing_service.purchase_application import OrderRecord, PurchaseOutcome
+
+    existing = PurchaseOutcome(OrderRecord(
+        id=uuid4(), customer_id=admission.customer_id, event_id=event_id,
+        status="confirmed", total_minor=1000, currency="ARS",
+        created_at=datetime.now(UTC), items=(), tickets=(),
+    ), replayed=True)
+    monkeypatch.setattr(
+        "ticketing_service.purchase_http.replay_confirmed_purchase",
+        lambda intent, customer_id, key, unit: existing,
+    )
+    admission.events_error = PurchaseAdmissionUnavailable("Events unreachable")
+    result = client.post(url(event_id), headers=headers(), json=payload(zone_id))
+    assert result.status_code == 200, result.text
+    assert result.json()["id"] == str(existing.order.id)
+    assert result.json()["replayed"] is True
+    assert admission.calls == [("identity", "valid-token")]
+    assert not calls
+
+    admission.calls.clear()
+    admission.identity_error = PurchaseAdmissionDenied("Revoked")
+    rejected = client.post(url(event_id), headers=headers(), json=payload(zone_id))
+    assert rejected.status_code == 403
+    assert not calls
+    assert admission.calls == [("identity", "valid-token")]

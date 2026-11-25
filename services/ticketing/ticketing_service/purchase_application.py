@@ -83,3 +83,31 @@ def purchase_tickets(
     except Exception:
         unit.rollback()
         raise
+
+
+def replay_confirmed_purchase(
+    intent: PurchaseIntent, customer_id: UUID, key: str, unit: PurchaseUnitOfWork,
+) -> PurchaseOutcome | None:
+    """Look up a verified customer's prior purchase without consulting Events.
+
+    Never creates orders or touches the sale gate. The customer-scoped advisory
+    lock serializes this read against a concurrent purchase using the same key.
+    A missing record is NOT a purchase authorization; the caller must check
+    the public Events admission before invoking purchase_tickets.
+    """
+    validate_purchase(intent, key)
+    try:
+        unit.lock_customer_key(customer_id)
+        prior = unit.find_existing(customer_id, key)
+        if prior is None:
+            unit.rollback()
+            return None
+        order_id, stored_hash = prior
+        if stored_hash != intent.canonical_hash():
+            raise PurchaseKeyConflict("Idempotency key used for another payload")
+        result = PurchaseOutcome(unit.read_order(order_id), replayed=True)
+        unit.commit()
+        return result
+    except Exception:
+        unit.rollback()
+        raise
