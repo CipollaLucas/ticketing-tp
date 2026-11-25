@@ -99,6 +99,7 @@ def main() -> None:
         first_order = checked(ticketing.post(
             order_url, json=order_body, headers=purchase_headers,
         ), 201, "Customer purchase HTTP")
+        assert UUID(first_order["customer_id"]) == customer_id
         assert first_order["status"] == "confirmed"
         assert first_order["total_minor"] == 2400
         assert first_order["replayed"] is False
