@@ -1,0 +1,16 @@
+# H5 opt-in gateway. Use a distinct Compose project, never active Legacy volumes.
+# docker compose -p h5-identity-uat -f docker-compose.yml -f docker-compose.identity.yml \
+#   -f docker-compose.identity-gateway-preview.yml --profile identity \
+#   --profile identity-gateway-preview up -d identity-gateway-preview
+services:
+  identity-gateway-preview:
+    image: nginx:1.27-alpine
+    profiles: ["identity-gateway-preview"]
+    volumes:
+      - ./gateway/identity-preview.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "127.0.0.1:8090:8080"
+    depends_on:
+      identity:
+        condition: service_healthy
+    restart: "no"
