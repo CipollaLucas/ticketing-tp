@@ -13,6 +13,7 @@ from ticketing_service.settings import settings
 app = FastAPI(title="Ticketing Service — H4 foundation", version="0.1.0")
 app.include_router(sale_router)
 app.include_router(provision_router)
+app.include_router(purchase_router)
 
 
 @app.get("/health")
