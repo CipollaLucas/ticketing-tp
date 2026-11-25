@@ -3,8 +3,16 @@ from typing import Literal, cast
 from uuid import UUID
 
 from sqlalchemy import (
-    CheckConstraint, ForeignKey, ForeignKeyConstraint, Index, Integer, String,
-    UniqueConstraint, Uuid, create_engine, select,
+    CheckConstraint,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+    Uuid,
+    create_engine,
+    select,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
