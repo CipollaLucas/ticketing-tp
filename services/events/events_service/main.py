@@ -3,14 +3,14 @@ from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, Query
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from events_service.application import public_catalog
+from events_service.application import public_catalog, public_event_detail
 from events_service.commands import router as protected_router
 from events_service.persistence import SqlAlchemyEventReader, engine
 
@@ -63,3 +63,15 @@ def catalog(
         items=[EventResponse.model_validate(row) for row in rows],
         total=count, limit=limit, offset=offset,
     )
+
+
+@app.get("/api/v1/events/{event_id}", response_model=EventResponse)
+def public_event(
+    event_id: UUID,
+    db: Annotated[Session, Depends(session_scope)],
+) -> EventResponse:
+    """Legacy public detail contract: published even after start, draft => 404."""
+    record = public_event_detail(SqlAlchemyEventReader(db), event_id)
+    if record is None:
+        raise HTTPException(404, "Event not found")
+    return EventResponse.model_validate(record)
