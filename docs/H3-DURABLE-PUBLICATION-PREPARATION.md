@@ -13,6 +13,7 @@ Ticketing already has an idempotent `GateCommand(command_id, event_id, expected_
 - Events-only additive migration `0003_publication_intents` adds `events.revision` initialized to 0 without changing event status and an `event_publication_intents` table with one `prepared` command per event.
 - Hexagonal `prepare_publication` verifies existence, owner/admin, draft, description and future dates, then persists a stable UUID command ID and next revision while **holding the Events row lock**.
 - A retry after a successful DB commit retrieves the same command ID/revision from Events DB.
+- While the intent is prepared, the pre-existing draft edit use case now refuses metadata changes (409), preventing stale content from being published later.
 - No public route, no state change to `published`, no HTTP calls to Ticketing and **no sales opened**. Runtime commercial flags unchanged. No Legacy, React or Gateway modifications.
 
 This is a **preparation stage** rather than a completed publish operation. Intent storage is durable, but Events has not yet implemented the revisioned metadata commit and remote command reconciliation.
