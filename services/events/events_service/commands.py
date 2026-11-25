@@ -104,6 +104,7 @@ def create_event(
         "start_at": event.start_at,
         "end_at": event.end_at,
         "status": event.status,
+        "created_at": event.created_at, "updated_at": event.updated_at,
     }
 
 
@@ -151,6 +152,7 @@ def owner_events(
                 "id": row.id, "owner_id": row.owner_id, "name": row.name,
                 "description": row.description, "venue": row.venue,
                 "start_at": row.start_at, "end_at": row.end_at, "status": row.status,
+                "created_at": row.created_at, "updated_at": row.updated_at,
             }
             for row in rows
         ],
