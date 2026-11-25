@@ -36,3 +36,19 @@ Do not archive the H5 OpenSpec change or activate production cutover based only 
 The H5 overlay now opts into an administrator seed using a separate script guarded by the disposable `h3_identity_test` database, the H3 seed flag and an H5-specific flag. The H3 two-user seed remains unchanged, so existing H3/H4 test suites are not altered. The new smoke authenticates the administrator through Gateway, verifies admin role, demonstrates owner/customer cannot modify another user's role, demonstrates administrator can perform a role-management request without changing the customer's role, and verifies the administrator can list managed events while the customer cannot.
 
 This proves **HTTP three-role API authorization**, not a real React browser journey. The preceding 'No administrator journey' limitation refers to the previous two-user test; it is superseded only after the new CI job has passed. Separate administrator browser UAT and real data cutover approval remain outstanding.
+
+
+## Proposed real-browser React acceptance
+
+The H5 CI job additionally starts the existing Vite React frontend on loopback, with `VITE_API_PROXY_TARGET=http://127.0.0.1:8091` pointing exclusively to the disposable H5 Gateway. It then launches headless Chromium via Playwright Python and drives `/#workspace` as a human would, using the actual UI (no mocked fetch calls).
+
+Browser steps:
+- Organizer logs in, creates a future draft, creates a general-admission zone, publishes it and signs out
+- Customer logs in, selects that published event, buys one simulated ticket, checks `Mis tickets` and signs out
+- Administrator logs in and opens the role-management view, then signs out
+
+Screenshots are attached as GitHub Actions artifacts. A unique event name avoids accidental selection of the API-smoke event. Existing test fixture databases are disposable and Legacy is not started.
+
+**Safety:** This is a simulated purchase that issues disposable PostgreSQL orders/tickets; it does not charge money. The browser runner requires an explicit H5 disposable flag, operates only on localhost, and never copies real passwords into screenshots. This job verifies UI integration but does not yet cover browser resilience to connection loss, asynchronous recovery, production rollback, or durability across database restore.
+
+The previous statement that no browser journey was exercised is superseded only after this CI change actually passes.

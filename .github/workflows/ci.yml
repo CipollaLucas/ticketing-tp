@@ -356,7 +356,8 @@ jobs:
 
 
   h5-gateway-stage-i:
-    runs-on: ubuntu-latest
+    # Playwright 1.56 supports Ubuntu 24.04; ubuntu-latest may resolve to 26.04.
+    runs-on: ubuntu-24.04
     env:
       H5_PROJECT: h5-gateway-ci
     steps:
@@ -398,6 +399,33 @@ jobs:
           docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml run --rm --no-deps h5-gateway-smoke | tee "$RUNNER_TEMP/h5-smoke.log"
       - name: Verify cross-service audit correlation and times
         run: python scripts/verify_h5_correlation.py "$H5_PROJECT" "$RUNNER_TEMP/h5-smoke.log"
+      - name: Install Chromium browser test dependencies
+        run: |
+          python -m pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Install frontend packages and start Vite against H5 Gateway
+        run: |
+          cd frontend
+          npm install --no-audit --no-fund
+          VITE_API_PROXY_TARGET=http://127.0.0.1:8091 npm run dev -- --host 127.0.0.1 > "$RUNNER_TEMP/h5-vite.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/h5-vite.pid"
+          cd ..
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:5173/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:5173/ >/dev/null
+      - name: Exercise real React workspace in Chromium without Legacy
+        env:
+          H5_DISPOSABLE_BROWSER_UAT: "yes"
+        run: python scripts/h5_react_browser_uat.py
+      - name: Upload browser screenshots for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: h5-browser-screenshots
+          path: ${{ runner.temp }}/h5-browser/
+          if-no-files-found: ignore
       - name: Inspect Gateway and services when failed
         if: failure()
         run: |
