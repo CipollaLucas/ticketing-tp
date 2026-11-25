@@ -1,4 +1,5 @@
 """Ticketing internal HTTP contract; no Events publication endpoint is activated."""
+import json
 from uuid import uuid4
 
 import httpx
@@ -46,7 +47,7 @@ def test_private_command_has_stable_idempotency_id_and_expected_version():
     def handler(request):
         assert request.method == "POST"
         assert request.url.path.endswith(f"/gates/{EVENT}/commands")
-        body = __import__("json").loads(request.content)
+        body = json.loads(request.content)
         assert body == {
             "command_id": str(command_id), "action": "close",
             "expected_version": 1, "event_revision": 3,
