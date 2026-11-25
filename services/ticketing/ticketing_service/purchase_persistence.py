@@ -13,7 +13,7 @@ from ticketing_service.persistence import (
     TicketRow,
     ZoneRow,
 )
-from ticketing_service.purchase import PurchaseError, PurchaseIntent
+from ticketing_service.purchase import PurchaseError, PurchaseIntent, TicketSelection
 from ticketing_service.purchase_application import (
     OrderLineRecord,
     OrderRecord,
@@ -51,7 +51,7 @@ class SqlAlchemyPurchaseUnitOfWork:
         if gate is None or gate.state != "open":
             raise PurchaseError(409, "Event is not on sale")
 
-        allocations: list[tuple[ZoneRow, object]] = []
+        allocations: list[tuple[ZoneRow, TicketSelection]] = []
         for item in sorted(intent.items, key=lambda x: x.zone_id):
             zone = self.db.scalar(
                 select(ZoneRow).where(
