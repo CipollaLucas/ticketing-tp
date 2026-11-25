@@ -45,6 +45,12 @@ class PurchaseRequest(BaseModel):
     items: list[SelectionRequest] = Field(min_length=1, max_length=20)
 
 
+class LegacyPurchaseRequest(PurchaseRequest):
+    """React Stage I contract: event_id belongs to body, never supplied as customer ID."""
+
+    event_id: UUID
+
+
 def admission_port() -> HttpPurchaseAdmission:
     if not settings.purchases_enabled:
         raise HTTPException(404, "Not found", headers=NO_STORE)
@@ -120,6 +126,7 @@ def create_order(
         raise HTTPException(error.status, error.detail, headers=NO_STORE) from error
     if outcome.replayed:
         response.status_code = 200
+    response.headers["Idempotent-Replayed"] = "true" if outcome.replayed else "false"
     order = outcome.order
     return {
         "id": order.id,
@@ -151,3 +158,26 @@ def create_order(
             for ticket in order.tickets
         ],
     }
+
+
+@router.post("/orders", status_code=201)
+def create_order_legacy_contract(
+    payload: LegacyPurchaseRequest,
+    response: Response,
+    request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")],
+    admission: Annotated[HttpPurchaseAdmission, Depends(admission_port)],
+    db: Annotated[Session, Depends(session_scope)],
+):
+    """Browser parity adapter; delegates to the same atomic H4 use case."""
+    return create_order(
+        payload.event_id,
+        PurchaseRequest(items=payload.items),
+        response,
+        request,
+        credentials,
+        idempotency_key,
+        admission,
+        db,
+    )

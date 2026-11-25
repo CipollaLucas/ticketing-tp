@@ -200,3 +200,61 @@ def test_historical_replay_does_not_depend_on_events_but_requires_identity(scena
     assert rejected.status_code == 403
     assert not calls
     assert admission.calls == [("identity", "valid-token")]
+
+
+def test_react_stage_i_purchase_contract_and_replayed_header(scenario):
+    client, admission, calls, event_id, zone_id = scenario
+    body = {"event_id": str(event_id), **payload(zone_id)}
+    first = client.post("/api/v1/orders", json=body, headers=headers("react-key"))
+    assert first.status_code == 201, first.text
+    assert first.headers["idempotent-replayed"] == "false"
+    assert first.json()["event_id"] == str(event_id)
+    replay = client.post("/api/v1/orders", json=body, headers=headers("react-key"))
+    assert replay.status_code == 200, replay.text
+    assert replay.headers["idempotent-replayed"] == "true"
+    assert replay.json()["id"] == first.json()["id"]
+    assert len(calls) == 2
+    assert all(call[1] == admission.customer_id for call in calls)
+
+
+def test_react_purchase_rejects_forged_customer_and_missing_event(scenario):
+    client, admission, calls, event_id, zone_id = scenario
+    body = {"event_id": str(event_id), **payload(zone_id)}
+    forged = client.post(
+        "/api/v1/orders",
+        json=body | {"customer_id": str(uuid4())},
+        headers=headers("forged"),
+    )
+    missing = client.post(
+        "/api/v1/orders", json=payload(zone_id), headers=headers("missing"),
+    )
+    assert forged.status_code == 422
+    assert missing.status_code == 422
+    assert not calls and not admission.calls
+
+
+def test_react_purchase_requires_token_and_fails_closed(scenario):
+    client, admission, calls, event_id, zone_id = scenario
+    body = {"event_id": str(event_id), **payload(zone_id)}
+    no_token = client.post(
+        "/api/v1/orders", json=body, headers={"Idempotency-Key": "missing-token"},
+    )
+    assert no_token.status_code == 401
+    admission.identity_error = PurchaseAdmissionUnavailable("Identity offline")
+    unavailable = client.post(
+        "/api/v1/orders", json=body, headers=headers("offline"),
+    )
+    assert unavailable.status_code == 503
+    assert not calls
+
+
+def test_react_purchase_default_disabled(scenario, monkeypatch):
+    client, admission, calls, event_id, zone_id = scenario
+    monkeypatch.setattr(settings, "purchases_enabled", False)
+    response = client.post(
+        "/api/v1/orders",
+        json={"event_id": str(event_id), **payload(zone_id)},
+        headers=headers(),
+    )
+    assert response.status_code == 404
+    assert not calls and not admission.calls

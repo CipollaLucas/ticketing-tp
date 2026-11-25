@@ -15,6 +15,7 @@ def main() -> None:
     assert "location /api/v1/events/" in contents
     assert "Idempotency-Key $http_idempotency_key" in contents
     assert "request_time=$request_time" in contents
+    assert "location = /api/v1/orders { proxy_pass http://h4-ticketing:8003; }" in contents
     assert "location = /api/v1/me/tickets { proxy_pass http://h4-ticketing:8003; }" in contents
     assert "location ~ ^/api/v1/events/[^/]+/inventory/?$" in contents
     assert "location ~ ^/api/v1/events/[^/]+/zones/?$" in contents
