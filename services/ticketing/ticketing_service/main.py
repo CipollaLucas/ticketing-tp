@@ -32,5 +32,5 @@ def availability():
     return {
         "sale_commands_enabled": settings.sale_commands_enabled,
         "gate_provisioning_enabled": settings.gate_provisioning_enabled,
-        "purchases_enabled": False,
+        "purchases_enabled": settings.purchases_enabled,
     }
