@@ -10,7 +10,12 @@ from typing import Protocol
 from uuid import UUID, uuid4
 
 from events_service.domain import EventRecord
-from events_service.sales_port import SaleGateCommand, SaleGatePort, SaleGateState, SaleGateUnavailable
+from events_service.sales_port import (
+    SaleGateCommand,
+    SaleGatePort,
+    SaleGateState,
+    SaleGateUnavailable,
+)
 
 
 class UnpublishRejected(Exception):
