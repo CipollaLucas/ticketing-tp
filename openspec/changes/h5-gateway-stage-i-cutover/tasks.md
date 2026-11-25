@@ -11,7 +11,7 @@
 
 - [x] Implement full opt-in Gateway config with no Legacy fallback and no internal API exposure (isolated PR #84).
 - [x] Add isolated Compose with Gateway + Identity + Events + Ticketing + independent DBs (PRs #84, #90).
-- [ ] Add route/security tests: correct upstream, auth forwarding, fail-closed, 404/503, no secrets.
+- [x] Add scoped disposable-UAT Gateway route/security tests: upstream ownership, bearer forwarding, fail-closed private routes, 404/503 and no reflected fake internal token (PRs #90, #100, #105; run 45660017482). Not full penetration testing or proof that all response variants contain no secrets.
 - [x] Add HTTP bitacora/timing validation across gateway/services (PRs #91, #93; publication trace, not all RPCs).
 - [x] Execute three-role Stage I end-to-end API and React journeys while Legacy is stopped (PRs #90, #94, #95).
 - [x] Verify isolated-UAT oversell/idempotency, purchase-vs-unpublish races, simulated lost ACK/retries, app restart and DB restore as separate evidence lines (H4/H5 CI; #90, #96, #97, #101, #103; see final evidence register). This is not a crash-during-commit or full cluster recovery guarantee.
@@ -34,3 +34,7 @@ See `docs/H5-FINAL-ACCEPTANCE-EVIDENCE.md` for real successful GitHub Actions ru
 ## Reconciliation update: lost-ACK dependency
 
 PR #82 remained unmerged and was closed as superseded by merged PR #103. Run [45658053960](https://github.com/CipollaLucas/ticketing-tp/actions/runs/45658053960) has twelve successful jobs, including `h4-three-service-live` (simulated lost publish/unpublish acknowledgement after Ticketing commit) and `h5-gateway-stage-i` (without the H4 fault proxy). See `docs/H5-FINAL-ACCEPTANCE-EVIDENCE.md` for accurate limitations. No automation or document may mark production cutover approved.
+
+## Acceptance review checkpoint (2026-11-25)
+
+PR #105 is merged at `ff3c3a49fa01897a0921cbc4d1363698fa52712f`; [CI run 45660017482](https://github.com/CipollaLucas/ticketing-tp/actions/runs/45660017482) passed all twelve jobs, including H5 route security probes. See `docs/H5-TECHNICAL-ACCEPTANCE-DECISION.md` for the explicit review agenda and scope dispositions. The unchecked rollback dry-run, final approval, archive, and separate production cutover authorization **remain unchecked**; this branch does not approve or archive anything.
