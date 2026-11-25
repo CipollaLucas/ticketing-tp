@@ -321,7 +321,7 @@ jobs:
           echo "H3_TEST_PASSWORD=$password" >> "$GITHUB_ENV"
       - name: Build independent Identity Events and Ticketing images
         run: |
-          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml build h3-identity h3-events h4-ticketing h4-live-smoke h4-confirmed-order-smoke h4-concurrent-http-smoke
+          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml build h3-identity h3-events h4-ticketing h4-live-smoke h4-confirmed-order-smoke h4-concurrent-http-smoke h4-fault-proxy h4-fault-recovery-smoke
       - name: Start three disposable PostgreSQL databases
         run: |
           docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml up -d --wait h3-identity-db h3-events-db h4-ticketing-db
@@ -333,9 +333,9 @@ jobs:
       - name: Seed only disposable Identity users
         run: |
           docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml run --rm --no-deps h3-identity python -m identity.h3_contract_seed
-      - name: Start three independent HTTP services
+      - name: Start three independent HTTP services behind disposable fault proxy
         run: |
-          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml up -d --wait h3-identity h4-ticketing h3-events
+          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml up -d --wait h3-identity h4-ticketing h4-fault-proxy h3-events
       - name: Run publish unpublish and republish contract over HTTP
         run: |
           docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml run --rm --no-deps h4-live-smoke
@@ -345,6 +345,9 @@ jobs:
       - name: Race real HTTP purchase versus unpublish across three services
         run: |
           docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml run --rm --no-deps h4-concurrent-http-smoke
+      - name: Verify publish and unpublish recover after committed but lost ACK
+        run: |
+          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml run --rm --no-deps h4-fault-recovery-smoke
       - name: Show service logs if unsuccessful
         if: failure()
         run: |
