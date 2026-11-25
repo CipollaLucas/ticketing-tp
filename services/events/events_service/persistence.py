@@ -56,6 +56,16 @@ class SqlAlchemyEventReader:
         return records, total
 
 
+    def by_id(self, event_id: UUID) -> EventRecord | None:
+        row = self.session.get(EventRow, event_id)
+        if row is None:
+            return None
+        return EventRecord(
+            id=row.id, owner_id=row.owner_id, name=row.name,
+            description=row.description, venue=row.venue,
+            start_at=row.start_at, end_at=row.end_at, status=row.status,
+        )
+
     def by_owner(
         self, owner_id: UUID | None, limit: int, offset: int,
     ) -> tuple[list[EventRecord], int]:
