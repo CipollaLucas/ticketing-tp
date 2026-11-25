@@ -23,6 +23,7 @@ from events_service.persistence import (
     SqlAlchemyDraftWriter,
     SqlAlchemyEventReader,
     SqlAlchemyPublicationUnitOfWork,
+    SqlAlchemyUnpublishUnit,
 )
 from events_service.provision_http import HttpClosedGateProvisioner
 from events_service.provisioning import ClosedGateProvisionPort, provision_verified_draft
@@ -31,6 +32,7 @@ from events_service.publish_coordinator import publish_via_ticketing
 from events_service.sales_http import HttpTicketingGateAdapter
 from events_service.sales_port import SaleGatePort, SaleGateRejected, SaleGateUnavailable
 from events_service.settings import settings
+from events_service.unpublish import UnpublishRejected, unpublish_via_ticketing
 
 router = APIRouter(prefix="/api/v1", tags=["Events protected preview"])
 bearer = HTTPBearer(auto_error=False)
@@ -396,6 +398,74 @@ def publish_event(
         ) from error
     event = SqlAlchemyEventReader(db).by_id(event_id)
     assert event is not None and event.status == "published"
+    return {
+        "id": event.id, "owner_id": event.owner_id,
+        "name": event.name, "description": event.description, "venue": event.venue,
+        "start_at": event.start_at, "end_at": event.end_at,
+        "status": event.status, "created_at": event.created_at,
+        "updated_at": event.updated_at,
+    }
+
+
+def unpublish_gate_port() -> SaleGatePort:
+    if not settings.unpublication_enabled:
+        raise HTTPException(404, "Not found", headers=NO_STORE)
+    try:
+        return HttpTicketingGateAdapter(
+            settings.ticketing_service_url, settings.ticketing_internal_token,
+            timeout=settings.ticketing_timeout_seconds,
+        )
+    except ValueError as error:
+        raise HTTPException(503, "Ticketing unpublish unavailable", headers=NO_STORE) from error
+
+
+@router.post("/events/{event_id}/unpublish")
+def unpublish_event(
+    event_id: UUID,
+    payload: PublishRequest,
+    response: Response,
+    request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
+    verifier: Annotated[IdentityPort, Depends(identity_port)],
+    remote: Annotated[SaleGatePort, Depends(unpublish_gate_port)],
+    db: Annotated[Session, Depends(session_scope)],
+):
+    """Stage I contract: close atomically with no sales, then change metadata."""
+    response.headers["Cache-Control"] = "no-store"
+    if not settings.protected_drafts_enabled or not settings.unpublication_enabled:
+        raise HTTPException(404, "Not found", headers=NO_STORE)
+    if credentials is None:
+        raise HTTPException(
+            401, "Invalid or expired credentials",
+            headers={**NO_STORE, "WWW-Authenticate": "Bearer"},
+        )
+    try:
+        principal = verifier.introspect(
+            credentials.credentials, request.headers.get("X-Request-ID"),
+        )
+    except IdentityUnauthorized as error:
+        raise HTTPException(401, "Invalid or expired credentials", headers=NO_STORE) from error
+    except IdentityUnavailable as error:
+        raise HTTPException(503, "Identity verification unavailable", headers=NO_STORE) from error
+    if principal.role not in {"event_owner", "administrator"}:
+        raise HTTPException(403, "Event owner role required", headers=NO_STORE)
+    try:
+        unpublish_via_ticketing(
+            SqlAlchemyUnpublishUnit(db), remote, event_id, principal.id,
+            principal.role, datetime.now(UTC), request.headers.get("X-Request-ID"),
+        )
+    except UnpublishRejected as error:
+        raise HTTPException(error.status, error.detail, headers=NO_STORE) from error
+    except SaleGateRejected as error:
+        raise HTTPException(409, "Cannot unpublish: Ticketing gate conflict or sales",
+                            headers=NO_STORE) from error
+    except SaleGateUnavailable as error:
+        raise HTTPException(
+            503, "Unpublication not confirmed; retry same event ID",
+            headers=NO_STORE,
+        ) from error
+    event = SqlAlchemyEventReader(db).by_id(event_id)
+    assert event is not None and event.status == "draft"
     return {
         "id": event.id, "owner_id": event.owner_id,
         "name": event.name, "description": event.description, "venue": event.venue,

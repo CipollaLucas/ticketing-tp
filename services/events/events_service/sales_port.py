@@ -38,6 +38,9 @@ class SaleGatePort(Protocol):
     def command(
         self, value: SaleGateCommand, request_id: str | None = None,
     ) -> SaleGateState: ...
+    def close_without_sales(
+        self, value: SaleGateCommand, request_id: str | None = None,
+    ) -> SaleGateState: ...
 
 
 def verified_gate_state(
