@@ -33,6 +33,8 @@ class EventResponse(BaseModel):
     start_at: datetime
     end_at: datetime
     status: str
+    created_at: datetime
+    updated_at: datetime
 
 
 class CatalogResponse(BaseModel):
