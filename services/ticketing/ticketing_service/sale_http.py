@@ -8,7 +8,7 @@ from typing import cast
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Response
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
@@ -58,9 +58,11 @@ def require_events_service(
 @router.get("/gates/{event_id}", response_model=SaleStateResponse)
 def read_sale_gate(
     event_id: UUID,
+    response: Response,
     _: Annotated[None, Depends(require_events_service)],
     db: Annotated[Session, Depends(session_scope)],
 ):
+    response.headers["Cache-Control"] = "no-store"
     gate = db.get(SaleGateRow, event_id)
     if gate is None:
         # Unknown IDs are closed by default, including on the internal status endpoint.
@@ -76,10 +78,12 @@ def read_sale_gate(
 @router.post("/gates/{event_id}/commands", response_model=SaleStateResponse)
 def change_gate(
     event_id: UUID,
+    response: Response,
     payload: SaleCommandRequest,
     _: Annotated[None, Depends(require_events_service)],
     db: Annotated[Session, Depends(session_scope)],
 ):
+    response.headers["Cache-Control"] = "no-store"
     command = GateCommand(
         command_id=payload.command_id, event_id=event_id, action=payload.action,
         expected_version=payload.expected_version,
