@@ -184,6 +184,7 @@ class PublicationIntentRow(Base):
     command_id: Mapped[UUID] = mapped_column(Uuid, nullable=False, unique=True)
     event_revision: Mapped[int] = mapped_column(Integer, nullable=False)
     phase: Mapped[str] = mapped_column(String(20), nullable=False, default="prepared")
+    expected_gate_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class SqlAlchemyPublicationUnitOfWork:
@@ -213,6 +214,7 @@ class SqlAlchemyPublicationUnitOfWork:
         return PublicationIntent(
             command_id=row.command_id, event_id=row.event_id,
             event_revision=row.event_revision, phase=row.phase,
+            expected_gate_version=row.expected_gate_version,
         )
 
     def event_revision(self, event_id: UUID) -> int:
@@ -225,6 +227,11 @@ class SqlAlchemyPublicationUnitOfWork:
             event_id=intent.event_id, command_id=intent.command_id,
             event_revision=intent.event_revision, phase=intent.phase,
         ))
+
+    def bind_gate_version(self, event_id: UUID, version: int) -> None:
+        row = self.session.get(PublicationIntentRow, event_id)
+        assert row is not None
+        row.expected_gate_version = version
 
     def commit(self) -> None:
         self.session.commit()
