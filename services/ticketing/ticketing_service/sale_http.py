@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from ticketing_service.application import change_sale_gate
 from ticketing_service.domain import GateCommand, GateConflict
+from ticketing_service.no_sales_close import ConfirmedSalesExist, close_gate_without_sales
 from ticketing_service.persistence import SaleGateRow, SqlAlchemyGateUnitOfWork, engine
 from ticketing_service.settings import settings
 
@@ -95,4 +96,33 @@ def change_gate(
     return SaleStateResponse(
         event_id=state.event_id, state=state.state, version=state.version,
         event_revision=state.event_revision,
+    )
+
+
+@router.post("/gates/{event_id}/close-without-sales", response_model=SaleStateResponse)
+def close_gate_for_unpublish(
+    event_id: UUID,
+    response: Response,
+    payload: SaleCommandRequest,
+    _: Annotated[None, Depends(require_events_service)],
+    db: Annotated[Session, Depends(session_scope)],
+):
+    """Only Events can atomically close if there are zero confirmed orders."""
+    response.headers["Cache-Control"] = "no-store"
+    if payload.action != "close":
+        raise HTTPException(422, "No-sales command requires close", headers=NO_STORE)
+    command = GateCommand(
+        command_id=payload.command_id, event_id=event_id,
+        action="close", expected_version=payload.expected_version,
+        event_revision=payload.event_revision,
+    )
+    try:
+        result = close_gate_without_sales(command, SqlAlchemyGateUnitOfWork(db))
+    except ConfirmedSalesExist as error:
+        raise HTTPException(409, str(error), headers=NO_STORE) from error
+    except GateConflict as error:
+        raise HTTPException(409, str(error), headers=NO_STORE) from error
+    return SaleStateResponse(
+        event_id=result.event_id, state=result.state,
+        version=result.version, event_revision=result.event_revision,
     )
