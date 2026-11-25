@@ -391,6 +391,10 @@ jobs:
       - name: Start the independent services and Gateway (no Legacy)
         run: |
           docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml up -d --wait h3-identity h3-events h4-ticketing h5-gateway
+      - name: Verify React API methods against live three-service OpenAPI
+        run: |
+          python scripts/h5_gateway_contract_check.py
+          python scripts/verify_h5_frontend_openapi.py
       - name: Validate NGINX configuration with upstream DNS available
         run: |
           docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml exec -T h5-gateway nginx -t
