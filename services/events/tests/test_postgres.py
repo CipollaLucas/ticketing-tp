@@ -25,7 +25,7 @@ def test_independent_postgres_migration_roundtrip():
             config.attributes["connection"] = connection
             command.upgrade(config, "head")
             connection.commit()
-            assert set(inspect(connection).get_table_names()) == {"alembic_version", "events", "event_publication_intents"}
+            assert set(inspect(connection).get_table_names()) == {"alembic_version", "events", "event_publication_intents", "event_unpublish_intents"}
             assert len(inspect(connection).get_foreign_keys("events")) == 0
         now = datetime.now(UTC)
         with Session(engine) as db:
