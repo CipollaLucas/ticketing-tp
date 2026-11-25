@@ -1,0 +1,18 @@
+# H5 opt-in overlay ONLY for disposable h3-contract + h4-live stack.
+# Do not include docker-compose.yml or a persistent Identity/Events/Ticketing overlay.
+# Run with unique project name and disposable tmpfs DBs.
+services:
+  h5-gateway:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./gateway/three-service-preview.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "127.0.0.1:8091:8080"
+    depends_on:
+      h3-identity:
+        condition: service_healthy
+      h3-events:
+        condition: service_healthy
+      h4-ticketing:
+        condition: service_healthy
+    restart: "no"
