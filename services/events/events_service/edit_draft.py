@@ -20,6 +20,7 @@ class EditEventError(Exception):
 
 class DraftEditPort(Protocol):
     def locked_event(self, event_id: UUID) -> EventRecord | None: ...
+    def pending_publication(self, event_id: UUID) -> bool: ...
     def save(self, value: EventRecord) -> None: ...
     def commit(self) -> None: ...
     def rollback(self) -> None: ...
@@ -51,6 +52,8 @@ def edit_draft(
             raise EditEventError(403, "Resource belongs to another user")
         if current.status != "draft":
             raise EditEventError(409, "Unpublish the event before editing")
+        if port.pending_publication(event_id):
+            raise EditEventError(409, "Publication preparation is pending")
         if not patch.changes or not patch.changes.keys() <= EDITABLE:
             raise EditEventError(422, "Provide at least one editable event field")
         if any(value is None for value in patch.changes.values()):
