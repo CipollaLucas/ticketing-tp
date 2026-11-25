@@ -83,7 +83,12 @@ def main() -> None:
 
         ready = Barrier(3)
 
-        def buyer() -> httpx.Response:
+        def buyer(
+            ready: Barrier = ready,
+            event_id: UUID = event_id,
+            zone_id: UUID = zone_id,
+            round_no: int = round_no,
+        ) -> httpx.Response:
             with httpx.Client(base_url=ticketing_url, timeout=15, trust_env=False) as cli:
                 ready.wait(timeout=10)
                 return cli.post(
@@ -94,7 +99,10 @@ def main() -> None:
                     },
                 )
 
-        def closer() -> httpx.Response:
+        def closer(
+            ready: Barrier = ready,
+            event_id: UUID = event_id,
+        ) -> httpx.Response:
             with httpx.Client(base_url=events_url, timeout=15, trust_env=False) as cli:
                 ready.wait(timeout=10)
                 return cli.post(
