@@ -42,7 +42,7 @@ def create_draft(
         id=uuid4(), owner_id=owner_id, name=payload.name.strip(),
         description=payload.description.strip(), venue=payload.venue.strip(),
         start_at=start.astimezone(UTC), end_at=end.astimezone(UTC),
-        status="draft",
+        status="draft", created_at=now.astimezone(UTC), updated_at=now.astimezone(UTC),
     )
     validate_event(event)
     if len(event.name) > 200 or len(event.venue) > 300 or len(event.description) > 5000:

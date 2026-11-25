@@ -1,5 +1,5 @@
 """Events-owned SQLAlchemy adapter. UUID owner_id has no external FK."""
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import CheckConstraint, DateTime, String, Uuid, create_engine, func, select
@@ -27,6 +27,12 @@ class EventRow(Base):
     start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     end_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String(20), default="draft")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC),
+    )
 
 
 engine = create_engine(settings.database_url, pool_pre_ping=True)
@@ -50,6 +56,7 @@ class SqlAlchemyEventReader:
                 id=row.id, owner_id=row.owner_id, name=row.name,
                 description=row.description, venue=row.venue, start_at=row.start_at,
                 end_at=row.end_at, status=row.status,
+                created_at=row.created_at, updated_at=row.updated_at,
             )
             for row in rows
         ]
@@ -64,6 +71,7 @@ class SqlAlchemyEventReader:
             id=row.id, owner_id=row.owner_id, name=row.name,
             description=row.description, venue=row.venue,
             start_at=row.start_at, end_at=row.end_at, status=row.status,
+            created_at=row.created_at, updated_at=row.updated_at,
         )
 
     def by_owner(
@@ -82,6 +90,7 @@ class SqlAlchemyEventReader:
                 id=row.id, owner_id=row.owner_id, name=row.name,
                 description=row.description, venue=row.venue, start_at=row.start_at,
                 end_at=row.end_at, status=row.status,
+                created_at=row.created_at, updated_at=row.updated_at,
             )
             for row in rows
         ], total
@@ -98,6 +107,8 @@ class SqlAlchemyDraftWriter:
             id=event.id, owner_id=event.owner_id, name=event.name,
             description=event.description, venue=event.venue,
             start_at=event.start_at, end_at=event.end_at, status=event.status,
+            created_at=event.created_at or datetime.now(UTC),
+            updated_at=event.updated_at or datetime.now(UTC),
         ))
 
     def commit(self) -> None:
