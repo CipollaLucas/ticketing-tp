@@ -25,3 +25,14 @@ No activar comercialmente hasta establecer y probar un protocolo de congelación
 - Revisión del riesgo TOCTOU y del plan de coordinación antes de cutover
 
 No se ejecutó Docker local durante la generación de este PR; no archivar el change.
+
+
+## H5 follow-up: shared gate-row serialization
+
+The proposed H5 fix ensures that the Ticketing transaction first inserts the event's closed gate with `INSERT ... ON CONFLICT DO NOTHING`, then locks that row `FOR UPDATE` before inserting the zone and seats. The event UUID has already been checked with the protected Events draft/owner endpoint; an existing open gate is never reset, and an open gate rejects inventory writes with 409.
+
+Publication's Ticketing gate-open CAS acquires the same row lock. As a result, if zone creation wins the local lock, it commits before the gate opens. If publication wins, the zone operation observes an open gate and cannot add inventory. PostgreSQL uniqueness on event ID serializes concurrent creation of the row.
+
+This is **not** a distributed transaction or a global lock on Events' metadata. The relative moment of a public 201 and final Events status remains governed by each service's separate transactions. The safety assertion is limited to inventory changes being serialized before the Ticketing gate opens, with draft ownership validated at the start of each request.
+
+New tests cover local closed/open gate preservation, PostgreSQL gate-opening-versus-zone-creation, and a real Gateway request to add inventory after publication. Do not declare this evidence accepted until CI and the PostgreSQL test run green.
