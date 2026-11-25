@@ -419,21 +419,32 @@ jobs:
         env:
           H5_DISPOSABLE_BROWSER_UAT: "yes"
         run: python scripts/h5_react_browser_uat.py
-      - name: Restart only H5 application containers (retain all disposable PostgreSQL)
+      - name: Restart H5 apps and recreate disposable Gateway after they are healthy
         run: |
-          docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml restart h3-identity h3-events h4-ticketing
-          # Gateway /health is a local NGINX return, not an upstream readiness check.
-          docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml up -d --wait h3-identity h3-events h4-ticketing h5-gateway
-          # Resolve upstream container addresses again after application restarts.
-          docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml exec -T h5-gateway nginx -t
-          docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml exec -T h5-gateway nginx -s reload
-          # Probe a route that actually crosses NGINX to an application.
-          for attempt in $(seq 1 20); do
-            if curl -fsS "http://127.0.0.1:8091/api/v1/events?limit=1&offset=0" >/dev/null; then
+          set -euo pipefail
+          files=(-f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml)
+          docker compose -p "$H5_PROJECT" "${files[@]}" restart h3-identity h3-events h4-ticketing
+          docker compose -p "$H5_PROJECT" "${files[@]}" up -d --wait h3-identity h3-events h4-ticketing
+          # NGINX keeps previous upstream addresses/workers across reload. Recreate
+          # only the disposable Gateway, after all service healthchecks pass.
+          docker compose -p "$H5_PROJECT" "${files[@]}" up -d --force-recreate --no-deps h5-gateway
+          docker compose -p "$H5_PROJECT" "${files[@]}" exec -T h5-gateway nginx -t
+          event_id=$(sed -n 's/^H5_RESTART_EVENT_ID=//p' "$RUNNER_TEMP/h5-smoke.log" | tail -n 1)
+          if ! [[ "$event_id" =~ ^[a-f0-9-]{36}$ ]]; then
+            echo "Missing disposable event fixture for readiness probes"
+            exit 1
+          fi
+          # A 401 from Identity /auth/me proves upstream routing; no credentials.
+          for attempt in $(seq 1 30); do
+            auth_status=$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:8091/api/v1/auth/me || true)
+            events_status=$(curl -sS -o /dev/null -w '%{http_code}' 'http://127.0.0.1:8091/api/v1/events?limit=1&offset=0' || true)
+            inventory_status=$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:8091/api/v1/events/$event_id/inventory" || true)
+            if [[ "$auth_status" == "401" && "$events_status" == "200" && "$inventory_status" == "200" ]]; then
+              echo "PASS: Identity, Events and Ticketing respond through fresh Gateway"
               break
             fi
-            if [ "$attempt" -eq 20 ]; then
-              echo "Gateway upstream still unavailable after restart"
+            if [ "$attempt" -eq 30 ]; then
+              echo "H5 upstreams not ready after restart: Identity=$auth_status Events=$events_status Ticketing=$inventory_status"
               exit 1
             fi
             sleep 1
