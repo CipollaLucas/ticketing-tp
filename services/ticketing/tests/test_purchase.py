@@ -9,7 +9,6 @@ from ticketing_service.purchase import (
     PurchaseIntent,
     PurchaseKeyConflict,
     TicketSelection,
-    validate_purchase,
 )
 from ticketing_service.purchase_application import (
     OrderRecord,
