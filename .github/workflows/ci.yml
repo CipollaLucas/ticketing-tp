@@ -301,3 +301,49 @@ jobs:
           PY
       - run: docker build -t ticketing-h4-foundation-ci .
         working-directory: services/ticketing
+
+  h4-three-service-live:
+    runs-on: ubuntu-latest
+    env:
+      H4_PROJECT: h4-live-ci
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create disposable UAT credentials
+        run: |
+          token=$(openssl rand -hex 32)
+          sales=$(openssl rand -hex 32)
+          password=$(openssl rand -hex 24)
+          echo "::add-mask::$token"
+          echo "::add-mask::$sales"
+          echo "::add-mask::$password"
+          echo "H3_INTERNAL_TOKEN=$token" >> "$GITHUB_ENV"
+          echo "H4_SALES_TOKEN=$sales" >> "$GITHUB_ENV"
+          echo "H3_TEST_PASSWORD=$password" >> "$GITHUB_ENV"
+      - name: Build independent Identity Events and Ticketing images
+        run: |
+          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml build h3-identity h3-events h4-ticketing h4-live-smoke
+      - name: Start three disposable PostgreSQL databases
+        run: |
+          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml up -d --wait h3-identity-db h3-events-db h4-ticketing-db
+      - name: Apply independent schema migrations
+        run: |
+          for service in h3-identity h3-events h4-ticketing; do
+            docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml run --rm --no-deps "$service" alembic upgrade head
+          done
+      - name: Seed only disposable Identity users
+        run: |
+          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml run --rm --no-deps h3-identity python -m identity.h3_contract_seed
+      - name: Start three independent HTTP services
+        run: |
+          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml up -d --wait h3-identity h4-ticketing h3-events
+      - name: Run publish unpublish and republish contract over HTTP
+        run: |
+          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml run --rm --no-deps h4-live-smoke
+      - name: Show service logs if unsuccessful
+        if: failure()
+        run: |
+          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml logs --tail 100 h3-identity h3-events h4-ticketing
+      - name: Remove ONLY this disposable project (no named volumes)
+        if: always()
+        run: |
+          docker compose -p "$H4_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml down

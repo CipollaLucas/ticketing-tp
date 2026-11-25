@@ -1,0 +1,59 @@
+# Disposable three-service H4 contract environment.
+# Run ONLY under a dedicated -p project name; PostgreSQL databases use tmpfs.
+# This overlay extends docker-compose.h3-contract.yml, never the regular stack.
+services:
+  h4-ticketing-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: h4_ticketing
+      POSTGRES_PASSWORD: h4-test-only
+      POSTGRES_DB: h4_ticketing_test
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U h4_ticketing -d h4_ticketing_test"]
+      interval: 2s
+      timeout: 2s
+      retries: 25
+
+  h4-ticketing:
+    build: ./services/ticketing
+    environment:
+      DATABASE_URL: postgresql+psycopg://h4_ticketing:h4-test-only@h4-ticketing-db:5432/h4_ticketing_test
+      EVENTS_INTERNAL_TOKEN: ${H4_SALES_TOKEN:?Set random H4_SALES_TOKEN}
+      GATE_PROVISIONING_ENABLED: "true"
+      SALE_COMMANDS_ENABLED: "true"
+    depends_on:
+      h4-ticketing-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8003/health')"]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+
+  h3-events:
+    environment:
+      TICKETING_SERVICE_URL: http://h4-ticketing:8003
+      TICKETING_INTERNAL_TOKEN: ${H4_SALES_TOKEN:?Set random H4_SALES_TOKEN}
+      PUBLICATION_ENABLED: "true"
+      UNPUBLICATION_ENABLED: "true"
+      TICKETING_TIMEOUT_SECONDS: "2"
+
+  h4-live-smoke:
+    build: ./services/events
+    environment:
+      DATABASE_URL: postgresql+psycopg://h3_events:h3-local-test-only@h3-events-db:5432/h3_events_test
+      H3_IDENTITY_URL: http://h3-identity:8001
+      H3_EVENTS_URL: http://h3-events:8002
+      H4_TICKETING_URL: http://h4-ticketing:8003
+      H4_SALES_TOKEN: ${H4_SALES_TOKEN:?Set random H4_SALES_TOKEN}
+      H3_TEST_PASSWORD: ${H3_TEST_PASSWORD:?Set random H3_TEST_PASSWORD}
+    depends_on:
+      h3-identity:
+        condition: service_healthy
+      h3-events:
+        condition: service_healthy
+      h4-ticketing:
+        condition: service_healthy
+    entrypoint: ["python", "h4_live_smoke.py"]
