@@ -30,3 +30,9 @@ The smoke runner refuses non-`h4_ticketing_test` databases, requires `H5_DISPOSA
 - A confirmed simulated ticket is an allocated ticket, **not** proof of captured payment.
 
 Do not archive the H5 OpenSpec change or activate production cutover based only on this job. Record exact green CI run and continue with the unresolved gates.
+
+## Proposed H5 three-role expansion
+
+The H5 overlay now opts into an administrator seed using a separate script guarded by the disposable `h3_identity_test` database, the H3 seed flag and an H5-specific flag. The H3 two-user seed remains unchanged, so existing H3/H4 test suites are not altered. The new smoke authenticates the administrator through Gateway, verifies admin role, demonstrates owner/customer cannot modify another user's role, demonstrates administrator can perform a role-management request without changing the customer's role, and verifies the administrator can list managed events while the customer cannot.
+
+This proves **HTTP three-role API authorization**, not a real React browser journey. The preceding 'No administrator journey' limitation refers to the previous two-user test; it is superseded only after the new CI job has passed. Separate administrator browser UAT and real data cutover approval remain outstanding.
