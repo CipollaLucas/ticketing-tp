@@ -107,16 +107,19 @@ def main() -> None:
             f"Unauthorized zone creation: {unauthorized.status_code}"
         )
 
-        published = checked(
-            gateway.post(
-                f"/api/v1/events/{event_id}/publish",
-                headers=owner_auth,
-                json={},
-            ),
-            200,
-            "Publish through Gateway",
+        publish_reply = gateway.post(
+            f"/api/v1/events/{event_id}/publish",
+            headers=owner_auth,
+            json={},
         )
+        published = checked(publish_reply, 200, "Publish through Gateway")
         assert published["status"] == "published"
+        trace_id = publish_reply.headers.get("X-Request-ID", "")
+        assert len(trace_id) == 32 and all(
+            digit in "0123456789abcdef" for digit in trace_id
+        ), "Expected NGINX-generated X-Request-ID in response"
+        # CI correlates one publish command across all four process log streams.
+        print(f"H5_PUBLISH_TRACE_ID={trace_id}", flush=True)
         assert checked(gateway.get(f"/api/v1/events/{event_id}"), 200, "Public event")["id"] == event_id
         catalog = checked(gateway.get("/api/v1/events"), 200, "Public catalog")
         assert any(item["id"] == event_id for item in catalog["items"])

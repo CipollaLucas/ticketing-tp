@@ -16,6 +16,9 @@ from identity.database import engine
 app = FastAPI(title="Ticketing Identity Service", version="0.1.0")
 app.include_router(router)
 logger = logging.getLogger("identity.http")
+logger.setLevel(logging.INFO)
+if not logger.handlers:
+    logger.addHandler(logging.StreamHandler())
 _SAFE_ID = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
 
 

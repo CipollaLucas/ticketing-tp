@@ -23,3 +23,14 @@ Automated per-service middleware tests assert correlation round-trip, 404 status
 - Preserve cutover OFF by default. No production or payment activation is included in this PR.
 
 Do not archive the umbrella H5 OpenSpec change based only on this increment.
+
+
+## Cross-service evidence increment (proposed)
+
+A real H5 Gateway smoke now captures the X-Request-ID of a successful event publication. That same publication calls Identity authorization and Ticketing sale-gate commands via Events. The CI verifier reads the **running disposable containers' logs**, and requires the exact publication ID plus an elapsed-time field in all four processes: NGINX Gateway, Identity, Events and Ticketing.
+
+Per-service HTTP audit loggers have explicit INFO levels and a stream handler so audit messages are emitted in Docker stdout/stderr even when Python root logging remains at WARNING. Handler propagation remains enabled for existing unit tests.
+
+This verifies one fully correlated published-event journey, not all possible internal RPCs, browser UI, or durable centralized audit storage. In particular, Ticketing public-event lookups from purchase admission do not yet forward the original request ID and are **not** covered by this publish-only proof. Do not claim universal trace propagation until those paths are tested.
+
+The new CI check uses only the H5 disposable Docker project, never a production log or database. Test output prints the correlation ID, not authentication secrets.

@@ -394,7 +394,9 @@ jobs:
           docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml exec -T h5-gateway nginx -t
       - name: Exercise Stage I through Gateway only
         run: |
-          docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml run --rm --no-deps h5-gateway-smoke
+          docker compose -p "$H5_PROJECT" -f docker-compose.h3-contract.yml -f docker-compose.h4-live.yml -f docker-compose.h5-gateway-preview.yml run --rm --no-deps h5-gateway-smoke | tee "$RUNNER_TEMP/h5-smoke.log"
+      - name: Verify cross-service audit correlation and times
+        run: python scripts/verify_h5_correlation.py "$H5_PROJECT" "$RUNNER_TEMP/h5-smoke.log"
       - name: Inspect Gateway and services when failed
         if: failure()
         run: |
